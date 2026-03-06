@@ -1,9 +1,14 @@
 @echo off
 title STAJ SISTEM V2 - EV STOP
 
+set PROJ=D:\staj-sistem-v2
+set YANDEX=D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS
+set TMP=%YANDEX%\stajv2_dump.tmp.sql
+set FINAL=%YANDEX%\stajv2_dump.sql
+
 echo.
 echo ==== PROJE KLASORU ====
-cd /d D:\staj-sistem-v2
+cd /d %PROJ%
 
 echo.
 echo ==== GIT DURUM ====
@@ -30,24 +35,23 @@ if errorlevel 1 (
 )
 
 echo.
-echo ==== DB BACKUP (YANDEX) ====
-docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > "D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
-
+echo ==== DB BACKUP ====
+cmd /c "docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
 if errorlevel 1 (
     echo HATA: DB backup basarisiz.
     pause
     exit /b 1
 )
 
-for %%A in ("D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql") do set SIZE=%%~zA
+for %%A in ("%TMP%") do set SIZE=%%~zA
 if "%SIZE%"=="0" (
     echo HATA: Dump dosyasi 0 KB olustu. Mevcut yedek korunuyor.
-    del /f /q "D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
+    del /f /q "%TMP%"
     pause
     exit /b 1
 )
 
-move /Y "D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql" "D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.sql" >nul
+move /Y "%TMP%" "%FINAL%" >nul
 
 echo.
 echo ==== DOCKER STOP ====
