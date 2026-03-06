@@ -3,7 +3,7 @@ title STAJ SISTEM V2 - LAPTOP STOP
 
 set PROJ=D:\staj-sistem-v2
 set YANDEX=D:\YandexDisk\MEHMET\YAZILIM\MUYS
-set TMP=%YANDEX%\stajv2_dump.tmp.sql
+set TMP_LOCAL=D:\stajv2_dump.tmp.sql
 set FINAL=%YANDEX%\stajv2_dump.sql
 
 echo.
@@ -36,22 +36,29 @@ if errorlevel 1 (
 
 echo.
 echo ==== DB BACKUP ====
-cmd /c "docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
+docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > "%TMP_LOCAL%"
 if errorlevel 1 (
     echo HATA: DB backup basarisiz.
     pause
     exit /b 1
 )
 
-for %%A in ("%TMP%") do set SIZE=%%~zA
+for %%A in ("%TMP_LOCAL%") do set SIZE=%%~zA
 if "%SIZE%"=="0" (
     echo HATA: Dump dosyasi 0 KB olustu. Mevcut yedek korunuyor.
-    del /f /q "%TMP%"
+    del /f /q "%TMP_LOCAL%"
     pause
     exit /b 1
 )
 
-move /Y "%TMP%" "%FINAL%" >nul
+copy /Y "%TMP_LOCAL%" "%FINAL%" >nul
+if errorlevel 1 (
+    echo HATA: Yandex klasorune kopyalanamadi.
+    pause
+    exit /b 1
+)
+
+del /f /q "%TMP_LOCAL%"
 
 echo.
 echo ==== DOCKER STOP ====
