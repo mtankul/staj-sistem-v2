@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# env
+.env
+client/.env
+server/.env
+
+# builds
+dist/
+build/
+client/dist/
+server/dist/
+
+# prisma
+server/node_modules/.prisma/
+server/node_modules/@prisma/
+**/*.log

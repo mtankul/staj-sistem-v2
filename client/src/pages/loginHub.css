@@ -1,0 +1,218 @@
+/* Root */
+.loginhub-root {
+  min-height: 100vh;
+  background: #f5f7fb;
+  position: relative;
+}
+
+/* İmza: küçük + LinkedIn ikon mavi */
+.loginhub-sign {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.80);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.10);
+  backdrop-filter: blur(6px);
+}
+.loginhub-sign:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+.loginhub-sign-ico {
+  font-size: 16px;
+  color: #0a66c2; /* LinkedIn mavi */
+}
+.loginhub-sign-txt {
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+/* Topbar */
+.loginhub-topbar {
+  background: linear-gradient(90deg, #1f5fbf, #2a7be4);
+  color: #fff;
+  padding: 14px 18px;
+}
+.loginhub-brand-title {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.loginhub-brand-sub {
+  opacity: 0.92;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+/* Body */
+.loginhub-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 16px;
+  min-height: calc(100vh - 56px);
+}
+
+/* Left */
+.loginhub-left {
+  display: flex;
+  justify-content: center;
+}
+
+/* Card */
+.loginhub-card {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.10);
+}
+
+/* Kart üst hero: logo ortalı + büyük */
+.loginhub-card-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 8px;
+  padding-bottom: 6px;
+}
+.loginhub-logo-big {
+  width: 150px;     /* yaklaşık 3x */
+  height: 150px;    /* yaklaşık 3x */
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+.loginhub-card-hero-title {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+.loginhub-card-hero-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+/* Login alanı biraz aşağı kaydı */
+.loginhub-login-area {
+  margin-top: 16px;
+}
+
+/* Info */
+.loginhub-info {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #eaf3ff;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+/* Footer */
+.loginhub-footer {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Right hero: mobile'da kapalı */
+.loginhub-right {
+  display: none;
+}
+
+/* Hero */
+.loginhub-hero {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  width: 100%;
+
+  /* ✅ GÜNCELLENDİ: public/logo/kbu-zemin.jpg */
+  /* Uzantı sende farklıysa: .png / .webp olarak değiştir */
+  background-image: url("/logo/kbu-zemin.png");
+
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.18);
+}
+
+.loginhub-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.12), rgba(2, 6, 23, 0.62));
+}
+.loginhub-hero-caption {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+.loginhub-hero-title {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.loginhub-hero-sub {
+  opacity: 0.92;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+/* Resmin altında imza için boşluk (desktop) */
+.loginhub-right-gap {
+  height: 52px; /* resim 1 karış yukarıda bitsin hissi */
+}
+
+/* Desktop breakpoint */
+@media (min-width: 1024px) {
+  .loginhub-body {
+    grid-template-columns: 520px 1fr;
+    align-items: stretch;
+    padding: 18px;
+  }
+
+  .loginhub-left {
+    justify-content: flex-start;
+  }
+
+  /* Kart zemine kadar insin */
+  .loginhub-card {
+    max-width: 520px;
+    height: 100%;
+  }
+
+  .loginhub-right {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* Resim: altta boşluk kalacak */
+  .loginhub-hero {
+    height: calc(100% - 52px);
+    min-height: 520px;
+  }
+}
+
+/* Mobilde logo da görünsün (zaten kartta var) */
+@media (max-width: 480px) {
+  .loginhub-logo-big {
+    width: 120px;
+    height: 120px;
+  }
+}

@@ -1,0 +1,577 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COORDINATOR
+  OBSERVER
+  STUDENT
+}
+
+enum Term {
+  GUZ
+  BAHAR
+  YAZ
+}
+
+/* ✅ NEW: Haftalık rapor durumları */
+enum WeeklyReportStatus {
+  DRAFT
+  SUBMITTED
+  REVISION_REQUESTED
+  RESUBMITTED
+  APPROVED
+}
+
+model Course {
+  id        String   @id @default(cuid())
+  code      String   @unique // MU1, MU2
+  name      String
+  isActive  Boolean  @default(true)
+  periods   Period[]
+  createdAt DateTime @default(now())
+}
+
+model Period {
+  id           String @id @default(cuid())
+  academicYear String // "2025-2026"
+  term         Term
+  courseId     String
+  course       Course @relation(fields: [courseId], references: [id])
+
+  midtermWeek Int? @default(8)
+  finalWeek1  Int? @default(16)
+  finalWeek2  Int? @default(17)
+
+  isActive Boolean @default(false)
+  status   String  @default("ACTIVE") // ACTIVE/ARCHIVED
+
+  // scoring settings snapshot (period-level)
+  reportWeight        Float @default(0.5)
+  evalWeight          Float @default(0.5)
+  practicePenaltyCoef Float @default(5.0)
+  theoryPenaltyCoef   Float @default(2.5)
+  rot1Weight          Float @default(0.4)
+  rot2Weight          Float @default(0.6)
+
+  absTheoryMax   Int @default(0)
+  absPracticeMax Int @default(0)
+
+  studentCanSeeReportScores Boolean @default(false)
+  studentCanSeeReportWeekly Boolean @default(false)
+
+  students  Student[]
+  createdAt DateTime  @default(now())
+
+  practiceDays  Json? // ör: ["WED","FRI"]
+  rotationCount Int   @default(1)
+
+  rot1StartWeek Int?
+  rot1EndWeek   Int?
+  rot2StartWeek Int?
+  rot2EndWeek   Int?
+
+  assignments  StudentAssignment[]
+  lotteryRules Json?
+  teachers     Teacher[]
+
+  attendances            Attendance[]            @relation("AttendancePeriod")
+  weeklyReportScores     WeeklyReportScore[]
+  weeklyEvaluationScores WeeklyEvaluationScore[]
+  periodEvalSnapshot     PeriodEvalSnapshot?
+
+  // ✅ RAPOR SNAPSHOT (opposite relation fix)
+  periodReportSnapshot PeriodReportSnapshot?
+
+  // ✅ HAFTA AYARLARI (tekil)
+  weekSettings PeriodWeekSetting[]
+
+  // ✅ Haftalık rapor cevapları (opposite)
+  weeklyReportAnswers WeeklyReportAnswer[]
+}
+
+model User {
+  id       String  @id @default(cuid())
+  username String  @unique
+  pinHash  String
+  role     Role
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id       String @id @default(cuid())
+  periodId String
+  period   Period @relation(fields: [periodId], references: [id])
+
+  studentNo   String
+  nameSurname String
+  sex         String //not null
+  photoUrl    String?
+
+  phone        String?
+  email        String?
+  shareContact Boolean @default(false)
+
+  username String // default = studentNo
+  pinHash  String
+
+  mustChangePin Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  assignments StudentAssignment[]
+
+  attendances            Attendance[]            @relation("AttendanceStudent")
+  weeklyReportScores     WeeklyReportScore[]
+  weeklyEvaluationScores WeeklyEvaluationScore[]
+
+  weeklyReportAnswers WeeklyReportAnswer[]
+
+  @@unique([periodId, studentNo])
+}
+
+model Observer {
+  id          String  @id @default(cuid())
+  nameSurname String
+  phone       String
+  email       String
+  photoUrl    String?
+  pinHash     String
+
+  messageFlag String @default("A") // A=show, P=hide
+
+  isCoordinator Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Hospital {
+  id            String   @id @default(cuid())
+  name          String
+  priorityOrder Int      @default(999)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  units    Unit[]
+  contacts HospitalContact[]
+
+  assignments      StudentAssignment[]
+  teacherHospitals TeacherHospital[]
+}
+
+model Unit {
+  id         String   @id @default(cuid())
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id])
+
+  name          String
+  dailyQuota    Int     @default(0)
+  genderRule    String? // "M"/"F"/null
+  priorityOrder Int     @default(999)
+  isActive      Boolean @default(true)
+
+  assignments StudentAssignment[]
+}
+
+model HospitalContact {
+  id         String   @id @default(cuid())
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  nameSurname String
+  title       String?
+  phone       String?
+  email       String?
+  note        String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hospitalId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  periodId  String?
+  actorRole Role?
+  actorId   String?
+  action    String
+  metaJson  String?
+  createdAt DateTime @default(now())
+}
+
+model StudentAssignment {
+  id String @id @default(cuid())
+
+  periodId   String
+  studentId  String
+  rotationNo Int
+  dayOfWeek  String // "MON".."SUN"
+
+  hospitalId String
+  unitId     String
+
+  method    String  @default("MANUAL") // MANUAL / LOTTERY
+  createdBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  period   Period   @relation(fields: [periodId], references: [id])
+  student  Student  @relation(fields: [studentId], references: [id])
+  hospital Hospital @relation(fields: [hospitalId], references: [id])
+  unit     Unit     @relation(fields: [unitId], references: [id])
+
+  @@unique([periodId, studentId, rotationNo], name: "period_student_rotation_unique")
+  @@index([periodId, rotationNo, dayOfWeek, unitId], name: "capacity_lookup")
+}
+
+model Teacher {
+  id       String @id @default(cuid())
+  periodId String
+  period   Period @relation(fields: [periodId], references: [id])
+
+  nameSurname String
+  phone       String
+  email       String?
+  photoUrl    String?
+
+  pinHash String
+  messageFlag String @default("A")
+
+  isObserver    Boolean @default(true)
+  isCoordinator Boolean @default(false)
+  isResponsible Boolean @default(false)
+
+  practiceDays String[]
+
+  hospitals TeacherHospital[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([periodId])
+}
+
+model TeacherHospital {
+  id         String @id @default(cuid())
+  teacherId  String
+  hospitalId String
+
+  teacher  Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  hospital Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, hospitalId])
+  @@index([hospitalId])
+}
+
+model Attendance {
+  id         String @id @default(cuid())
+  periodId   String
+  studentId  String
+  rotationNo Int
+  weekNo     Int
+
+  theoryAbsent   Boolean @default(false)
+  practiceAbsent Boolean @default(false)
+
+  markedBy String?
+  note     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  period  Period  @relation("AttendancePeriod", fields: [periodId], references: [id], onDelete: Cascade)
+  student Student @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, studentId, rotationNo, weekNo], name: "uniq_attendance_week")
+  @@index([periodId, rotationNo, weekNo])
+}
+
+/* ✅ UPDATED: WeeklyReportScore artık raporun "header" kaydı gibi çalışacak */
+model WeeklyReportScore {
+  id         String @id @default(cuid())
+  periodId   String
+  studentId  String
+  rotationNo Int
+  weekNo     Int
+
+  score Float
+
+  // ✅ status artık enum (rapor kilidi + iade + onay)
+  status WeeklyReportStatus @default(DRAFT)
+
+  // ✅ rapor kilit ve zamanlar
+  submittedAt DateTime?
+  lockedAt    DateTime?
+
+  // ✅ düzeltmeye gönder / iade notu
+  revisionRequestedAt DateTime?
+  revisionNote        String?
+
+  // ✅ öğretmen "notları göster" dediğinde öğrenci görsün
+  isPublishedToStudent Boolean @default(false)
+  publishedAt          DateTime?
+
+  gradedBy String?
+  note     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  period  Period  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, studentId, rotationNo, weekNo], name: "uniq_reportscore_week")
+  @@index([periodId, rotationNo, weekNo])
+}
+
+model WeeklyEvaluationScore {
+  id         String @id @default(cuid())
+  periodId   String
+  studentId  String
+  rotationNo Int
+  weekNo     Int
+
+  score Float
+
+  gradedBy String?
+  note     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  period  Period  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, studentId, rotationNo, weekNo], name: "uniq_evalscore_week")
+  @@index([periodId, rotationNo, weekNo])
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model EvalTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  version     Int     @default(1)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groups           EvalTemplateGroup[]
+  openQuestionText String?
+
+  @@index([isActive])
+}
+
+model EvalTemplateGroup {
+  id         String       @id @default(cuid())
+  templateId String
+  template   EvalTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  title       String
+  orderNo     Int    @default(1)
+  totalPoints Int    @default(0)
+
+  items EvalTemplateItem[]
+
+  @@index([templateId])
+}
+
+model EvalTemplateItem {
+  id      String            @id @default(cuid())
+  groupId String
+  group   EvalTemplateGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  text     String
+  points   Int     @default(0)
+  orderNo  Int     @default(1)
+  isActive Boolean @default(true)
+
+  @@index([groupId])
+}
+
+model PeriodEvalSnapshot {
+  id       String @id @default(cuid())
+  periodId String @unique
+  period   Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  sourceTemplateId      String?
+  sourceTemplateVersion Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  groups           PeriodEvalGroup[]
+  openQuestionText String?
+}
+
+model PeriodEvalGroup {
+  id         String             @id @default(cuid())
+  snapshotId String
+  snapshot   PeriodEvalSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  title       String
+  orderNo     Int    @default(1)
+  totalPoints Int    @default(0)
+
+  items PeriodEvalItem[]
+
+  @@index([snapshotId])
+}
+
+model PeriodEvalItem {
+  id      String          @id @default(cuid())
+  groupId String
+  group   PeriodEvalGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  text     String
+  points   Int     @default(0)
+  orderNo  Int     @default(1)
+  isActive Boolean @default(true)
+
+  @@index([groupId])
+}
+
+model ReportTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  version     Int     @default(1)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions ReportTemplateQuestion[]
+
+  @@index([isActive])
+}
+
+model ReportTemplateQuestion {
+  id         String         @id @default(cuid())
+  templateId String
+  template   ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  text     String
+  points   Int     @default(0)
+  orderNo  Int     @default(1)
+  isActive Boolean @default(true)
+
+  @@index([templateId])
+}
+
+model PeriodReportSnapshot {
+  id       String @id @default(cuid())
+  periodId String @unique
+  period   Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  totalPoints Int @default(100)
+
+  questions PeriodReportQuestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PeriodReportQuestion {
+  id         String               @id @default(cuid())
+  snapshotId String
+  snapshot   PeriodReportSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  text     String
+  points   Int     @default(0)
+  orderNo  Int     @default(1)
+  isActive Boolean @default(true)
+
+  answers WeeklyReportAnswer[]
+
+  @@index([snapshotId])
+}
+
+/* ✅ UPDATED: WeeklyReportAnswer soru bazlı puan + yorum + markdown */
+model WeeklyReportAnswer {
+  id         String @id @default(cuid())
+  periodId   String
+  studentId  String
+  rotationNo Int
+  weekNo     Int
+
+  questionId String
+  question   PeriodReportQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  period  Period  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // ✅ mevcut alan (geriye uyumluluk için duruyor)
+  answerText String
+
+  // ✅ yeni alan: markdown (bold/italic için ideal)
+  answerMd   String @default("")
+  // ✅ opsiyonel: ileride WYSIWYG istersen
+  answerHtml String?
+
+  // ✅ soru bazlı değerlendirme
+  teacherScore   Int?
+  teacherComment String?
+  teacherEditedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodId, studentId, rotationNo, weekNo, questionId], name: "uniq_weekly_answer")
+  @@index([periodId, rotationNo, weekNo])
+  @@index([questionId])
+  @@index([studentId])
+}
+
+model PeriodWeekSetting {
+  id       String @id @default(cuid())
+  periodId String
+  period   Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  weekNo Int
+
+  studentCanSeeReportScore Boolean @default(false)
+
+  @@unique([periodId, weekNo], name: "uniq_period_week")
+  @@index([periodId, weekNo])
+}
+
+model WeeklyEvaluationItemScore {
+  id         String   @id @default(cuid())
+
+  periodId   String
+  studentId  String
+  rotationNo Int
+  weekNo     Int
+  itemId     String
+
+  score      Int      @default(0)
+
+  gradedBy   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([periodId, studentId, rotationNo, weekNo, itemId], name: "uniq_evalitem_week")
+  @@index([periodId, rotationNo, weekNo])
+  @@index([studentId])
+}

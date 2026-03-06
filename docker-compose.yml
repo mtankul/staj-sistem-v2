@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: stajv2_pg
+    environment:
+      POSTGRES_USER: stajv2
+      POSTGRES_PASSWORD: stajv2pass
+      POSTGRES_DB: stajv2
+    ports:
+      - "5433:5432"
+    volumes:
+      - stajv2_pgdata:/var/lib/postgresql/data
+
+volumes:
+  stajv2_pgdata:

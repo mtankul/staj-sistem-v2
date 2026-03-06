@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Period" ADD COLUMN     "finalWeek1" INTEGER DEFAULT 16,
+ADD COLUMN     "finalWeek2" INTEGER DEFAULT 17,
+ADD COLUMN     "midtermWeek" INTEGER DEFAULT 8;

@@ -1,0 +1,173 @@
+/* =========================
+   TAILWIND BASE
+   ========================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   GLOBAL BASE (Vite default temiz)
+   ========================= */
+
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Linkler */
+a {
+  font-weight: 500;
+  color: #1677ff; /* AntD primary default */
+  text-decoration: none;
+}
+a:hover {
+  color: #4096ff;
+}
+
+/* Body: Admin panelde layout bozulmasın diye flex/center KULLANMIYORUZ */
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+/* Root container */
+#root {
+  min-height: 100vh;
+}
+
+/* Global button'a dokunma (AntD kendi stilini kullanır) */
+button {
+  font-family: inherit;
+}
+
+/* =========================
+   ADMIN SHELL
+   ========================= */
+
+.admin-brand {
+  padding: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  user-select: none;
+}
+
+.admin-shell .ant-menu-item,
+.admin-shell .ant-menu-submenu-title {
+  gap: 10px;
+}
+
+.admin-shell .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.admin-shell .admin-brand {
+  flex: 0 0 auto;
+}
+
+.admin-shell .ant-menu {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.admin-shell .admin-brand-title {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* =========================
+   MENU PRESET: LIGHT
+   ========================= */
+
+.admin-shell.menu-light .ant-layout-sider {
+  background: #ffffff !important;
+  border-right: 1px solid #f0f0f0;
+}
+
+.admin-shell.menu-light .admin-brand {
+  background: #ffffff !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-shell.menu-light .ant-menu,
+.admin-shell.menu-light .ant-menu-light,
+.admin-shell.menu-light .ant-menu-light .ant-menu-sub {
+  background: #ffffff !important;
+}
+
+.admin-shell.menu-light .ant-menu-item,
+.admin-shell.menu-light .ant-menu-submenu-title,
+.admin-shell.menu-light .ant-menu-item a {
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+.admin-shell.menu-light .ant-menu-item-selected {
+  background: #e6f4ff !important;
+  color: rgba(0, 0, 0, 0.88) !important;
+}
+
+.admin-shell.menu-light .ant-menu-item:hover,
+.admin-shell.menu-light .ant-menu-submenu-title:hover {
+  background: #f5f5f5 !important;
+}
+
+/* =========================
+   MENU PRESET: DARK
+   ========================= */
+
+.admin-shell.menu-dark .ant-layout-sider {
+  background: #0b1220 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-shell.menu-dark .admin-brand {
+  background: #0b1220 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.admin-shell.menu-dark .ant-menu-dark,
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-sub {
+  background: #0b1220 !important;
+}
+
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-item,
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-submenu-title,
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-item a {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-item-selected {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-item:hover,
+.admin-shell.menu-dark .ant-menu-dark .ant-menu-submenu-title:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* GELDİ */
+.sw-present.ant-switch {
+  background-color: #52c41a !important;
+}
+
+/* YOK */
+.sw-absent.ant-switch {
+  background-color: #ff4d4f !important;
+}
+
+/* disabled ise gri */
+.ant-switch-disabled {
+  background-color: #d9d9d9 !important;
+}
