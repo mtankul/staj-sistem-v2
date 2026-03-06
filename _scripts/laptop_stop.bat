@@ -1,32 +1,51 @@
 @echo off
-title LAPTOP_STOP - DB Backup to Yandex
+title STAJ SISTEM V2 - LAPTOP STOP
 
-set PROJECT_DIR=D:\staj-sistem-v2
-set DUMP_DIR=D:\YandexDisk\MEHMET\YAZILIM\MUYS
-set DUMP_PATH=%DUMP_DIR%\stajv2_dump.sql
-set TMP_PATH=%DUMP_DIR%\stajv2_dump.tmp
-set CONTAINER=stajv2_pg
-set DB_USER=stajv2
-set DB_NAME=stajv2
+echo.
+echo ==== PROJE KLASORU ====
+cd /d D:\staj-sistem-v2
 
-cd /d %PROJECT_DIR%
+echo.
+echo ==== GIT DURUM ====
+git status
 
+echo.
+echo ==== GIT ADD ====
+git add .
+
+echo.
+set /p msg=Commit mesaji yaz: 
+
+git commit -m "%msg%"
+
+echo.
+echo ==== GIT PUSH ====
+git push
+
+echo.
 echo ==== DB BACKUP ====
-docker ps --format "{{.Names}}" | findstr /i "%CONTAINER%" >nul
+docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > "D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
+
 if errorlevel 1 (
-  echo HATA: %CONTAINER% calismiyor. (docker compose up -d)
-  pause
-  exit /b 1
+    echo HATA: DB backup basarisiz.
+    pause
+    exit /b 1
 )
 
-docker exec -t %CONTAINER% pg_dump -U %DB_USER% -d %DB_NAME% > "%TMP_PATH%"
-if errorlevel 1 (
-  echo HATA: Dump alinamadi.
-  pause
-  exit /b 1
+for %%A in ("D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql") do set SIZE=%%~zA
+if "%SIZE%"=="0" (
+    echo HATA: Dump dosyasi 0 KB olustu. Mevcut yedek korunuyor.
+    del /f /q "D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
+    pause
+    exit /b 1
 )
 
-move /Y "%TMP_PATH%" "%DUMP_PATH%" >nul
-echo OK: Dump yazildi: %DUMP_PATH%
-echo Not: Kod degisikligi yaptiysaniz git commit/push yapmayi unutmayin.
+move /Y "D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql" "D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.sql" >nul
+
+echo.
+echo ==== DOCKER STOP ====
+docker stop stajv2_pg
+
+echo.
+echo OK: Laptop kapanis islemleri tamamlandi.
 pause

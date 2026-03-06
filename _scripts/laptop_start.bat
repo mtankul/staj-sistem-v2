@@ -1,49 +1,81 @@
 @echo off
-title LAPTOP_START - Pull + DB Restore + Docker Up
-
-set PROJECT_DIR=D:\staj-sistem-v2
-set DUMP_PATH=D:\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.sql
-set CONTAINER=stajv2_pg
-set DB_USER=stajv2
-set DB_NAME=stajv2
-
-cd /d %PROJECT_DIR%
-
-echo ==== GIT PULL ====
-git pull
-if errorlevel 1 (
-  echo HATA: git pull basarisiz.
-  pause
-  exit /b 1
-)
+title STAJ SISTEM V2 - LAPTOP START
 
 echo.
-echo ==== DOCKER UP ====
+echo ==== PROJE KLASORU ====
+cd /d D:\staj-sistem-v2
+
+echo.
+echo ==== GIT GUNCELLE ====
+git pull
+
+echo.
+echo ==== DOCKER BASLAT ====
 docker compose up -d
 if errorlevel 1 (
-  echo HATA: docker compose up -d basarisiz.
-  pause
-  exit /b 1
+    echo HATA: Docker/Postgres baslatilamadi.
+    pause
+    exit /b 1
 )
 
 echo.
-echo ==== DB RESTORE (varsa) ====
-if not exist "%DUMP_PATH%" (
-  echo UYARI: Dump yok, restore atlandi.
-  echo %DUMP_PATH%
-  pause
-  exit /b 0
+echo ==== SERVER ENV KONTROL ====
+if not exist "D:\staj-sistem-v2\server\.env" (
+    echo .env bulunamadi. Olusturuluyor...
+    (
+        echo PORT=3000
+        echo DATABASE_URL="postgresql://stajv2:stajv2pass@localhost:5433/stajv2?schema=public"
+        echo.
+        echo JWT_ACCESS_SECRET="change_me_access"
+        echo JWT_REFRESH_SECRET="change_me_refresh"
+        echo CORS_ORIGIN="http://localhost:5173"
+    ) > D:\staj-sistem-v2\server\.env
+    echo .env olusturuldu.
 )
 
-docker exec -i %CONTAINER% psql -U %DB_USER% -d postgres -c "DROP DATABASE IF EXISTS %DB_NAME%;"
-docker exec -i %CONTAINER% psql -U %DB_USER% -d postgres -c "CREATE DATABASE %DB_NAME%;"
-cmd /c "type %DUMP_PATH% | docker exec -i %CONTAINER% psql -U %DB_USER% -d %DB_NAME%"
+echo.
+echo ==== SERVER NODE_MODULES KONTROL ====
+cd /d D:\staj-sistem-v2\server
+if not exist node_modules (
+    echo node_modules bulunamadi. npm install yapiliyor...
+    npm install
+    if errorlevel 1 (
+        echo HATA: Server npm install basarisiz.
+        pause
+        exit /b 1
+    )
+)
 
+echo.
+echo ==== PRISMA GENERATE ====
+npx prisma generate
 if errorlevel 1 (
-  echo HATA: Restore basarisiz.
-  pause
-  exit /b 1
+    echo HATA: Prisma generate basarisiz.
+    pause
+    exit /b 1
 )
 
+echo.
+echo ==== CLIENT NODE_MODULES KONTROL ====
+cd /d D:\staj-sistem-v2\client
+if not exist node_modules (
+    echo node_modules bulunamadi. npm install yapiliyor...
+    npm install
+    if errorlevel 1 (
+        echo HATA: Client npm install basarisiz.
+        pause
+        exit /b 1
+    )
+)
+
+echo.
+echo ==== SERVER BASLAT ====
+start "STAJ SERVER" cmd /k "cd /d D:\staj-sistem-v2\server && npm run dev"
+
+echo.
+echo ==== CLIENT BASLAT ====
+start "STAJ CLIENT" cmd /k "cd /d D:\staj-sistem-v2\client && npm run dev"
+
+echo.
 echo OK: LAPTOP_START tamam.
 pause
