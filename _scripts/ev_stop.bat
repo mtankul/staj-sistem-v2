@@ -36,7 +36,7 @@ if errorlevel 1 (
 
 echo.
 echo ==== DB BACKUP ====
-docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > "%TMP%"
+cmd /c "docker exec -t stajv2_pg pg_dump -U stajv2 -d stajv2 > D:\YANDEX_MTANKUL\YandexDisk\MEHMET\YAZILIM\MUYS\stajv2_dump.tmp.sql"
 if errorlevel 1 (
     echo HATA: DB backup basarisiz.
     pause
