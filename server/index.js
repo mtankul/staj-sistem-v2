@@ -46,6 +46,7 @@ import teachersRouter from "./src/routes/teachers.js";
 import { seedSystemSettings } from "./src/seed/settingsSeed.js";
 import { seedAdminUser } from "./src/seed/seedAdminUser.js";
 import teacherControlPanel from "./src/routes/teacher/controlPanel.js";
+import teacherEvalControlPanel from "./src/routes/teacher/evalControlPanel.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,6 +159,7 @@ app.get("/api/teacher/me", requireTeacher, async (req, res) => {
   return res.json({ ok: true, user: req.user });
 });
 app.use("/api/teacher", teacherControlPanel);
+app.use("/api/teacher", teacherEvalControlPanel);
 
 /* =========================
    STARTUP (SEED + LISTEN)

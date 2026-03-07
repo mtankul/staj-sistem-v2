@@ -5,6 +5,7 @@ import {
   CalendarOutlined,
   UserOutlined,
   FileTextOutlined,
+  CheckSquareOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
 
@@ -56,6 +57,11 @@ export default function TeacherShell() {
           key: "/teacher/control-panel",
           icon: <DashboardOutlined />,
           label: "Koordinatör Kontrol Paneli",
+        },
+        {
+          key: "/teacher/eval-control",
+          icon: <CheckSquareOutlined />,
+          label: "Değerlendirme Kontrol Paneli",
         },
         {
           key: "/teacher/report-scoring",

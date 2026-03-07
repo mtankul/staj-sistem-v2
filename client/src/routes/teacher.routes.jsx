@@ -5,6 +5,7 @@ import TeacherDashboard from "../pages/TeacherDashboard.jsx";
 import TeacherScoring from "../pages/TeacherScoring.jsx";
 import TeacherReportScoring from "../pages/TeacherReportScoring.jsx";
 import CoordinatorControlPanel from "../pages/CoordinatorControlPanel.jsx";
+import TeacherEvalControl  from "../pages/EvalControlPanel.jsx";
 
 /**
  * CANONICAL: Teacher route fragments
@@ -21,6 +22,7 @@ export function TeacherRoutes() {
       <Route path="scoring" element={<TeacherScoring />} />
       <Route path="report-scoring" element={<TeacherReportScoring />} />
       <Route path="control-panel" element={<CoordinatorControlPanel />} />
+      <Route path="eval-control" element={<TeacherEvalControl />} />
     </>
   );
 }
