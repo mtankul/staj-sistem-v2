@@ -1,4 +1,4 @@
-//\staj-sistem-v2\client\src\pages/EvalControlPanel.jsx
+//\staj-sistem-v2\client\src\pages\EvalControlPanel.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Card,
@@ -25,13 +25,48 @@ const { Title, Text } = Typography;
 
 const WEEK_COUNT = 17;
 
-function cellStyle(item) {
-  if (item?.isExam) {
+function LegendBadge({ color, label, borderColor = color }) {
+  return (
+    <Space size={8}>
+      <span
+        style={{
+          width: 14,
+          height: 14,
+          display: "inline-block",
+          borderRadius: 4,
+          background: color,
+          border: `1px solid ${borderColor}`,
+        }}
+      />
+      <span style={{ fontSize: 12, color: "#334155" }}>{label}</span>
+    </Space>
+  );
+}
+
+function getWeekKind(item, currentWeekNo) {
+  const current = Number(currentWeekNo || 0);
+  const weekNo = Number(item?.weekNo || 0);
+
+  if (!item) return "EMPTY";
+  if (item?.isExam) return "EXAM";
+  if (current > 0 && weekNo > current) return "FUTURE";
+  if (item?.practiceRelevant === false) return "OUTSIDE_ROTATION";
+  return "NORMAL";
+}
+
+function cellStyle(item, currentWeekNo) {
+  const kind = getWeekKind(item, currentWeekNo);
+
+  if (kind === "EXAM") {
     return { background: "#fffbe6", border: "1px solid #ffe58f" };
   }
 
-  if (item && item?.practiceRelevant === false) {
+  if (kind === "OUTSIDE_ROTATION") {
     return { background: "#f9f0ff", border: "1px solid #d3adf7" };
+  }
+
+  if (kind === "FUTURE") {
+    return { background: "#f0f5ff", border: "1px solid #adc6ff" };
   }
 
   if (item?.evalDone) {
@@ -49,8 +84,10 @@ function cellStyle(item) {
   return { background: "#fafafa", border: "1px solid #f0f0f0" };
 }
 
-function buildWeekCell(item) {
-  if (!item) {
+function buildWeekCell(item, currentWeekNo) {
+  const kind = getWeekKind(item, currentWeekNo);
+
+  if (kind === "EMPTY") {
     return (
       <div
         style={{
@@ -70,11 +107,11 @@ function buildWeekCell(item) {
     );
   }
 
-  if (item.isExam) {
+  if (kind === "EXAM") {
     return (
       <div
         style={{
-          ...cellStyle(item),
+          ...cellStyle(item, currentWeekNo),
           borderRadius: 8,
           padding: 6,
           minHeight: 68,
@@ -82,16 +119,16 @@ function buildWeekCell(item) {
         }}
       >
         <div style={{ fontWeight: 700, color: "#ad6800" }}>Sınav</div>
-        <div>{item.examLabel || "-"}</div>
+        <div>{item?.examLabel || "-"}</div>
       </div>
     );
   }
 
-  if (item?.practiceRelevant === false) {
+  if (kind === "OUTSIDE_ROTATION") {
     return (
       <div
         style={{
-          ...cellStyle(item),
+          ...cellStyle(item, currentWeekNo),
           borderRadius: 8,
           padding: 6,
           minHeight: 68,
@@ -106,10 +143,28 @@ function buildWeekCell(item) {
     );
   }
 
+  if (kind === "FUTURE") {
+    return (
+      <div
+        style={{
+          ...cellStyle(item, currentWeekNo),
+          borderRadius: 8,
+          padding: 6,
+          minHeight: 68,
+          fontSize: 11,
+          lineHeight: 1.25,
+        }}
+      >
+        <div style={{ fontWeight: 700, color: "#1d39c4" }}>Gelecek Hafta</div>
+        <div>Henüz gelinmedi</div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
-        ...cellStyle(item),
+        ...cellStyle(item, currentWeekNo),
         borderRadius: 8,
         padding: 6,
         minHeight: 68,
@@ -118,13 +173,13 @@ function buildWeekCell(item) {
       }}
     >
       <div>
-        <b>UY:</b> {item.practicePresent ? "Geldi" : item.practiceAbsent ? "Yok" : "-"}
+        <b>UY:</b> {item?.practicePresent ? "Geldi" : item?.practiceAbsent ? "Yok" : "-"}
       </div>
       <div>
-        <b>D:</b> {item.evalDone ? "Var" : "-"}
+        <b>D:</b> {item?.evalDone ? "Var" : "-"}
       </div>
       <div>
-        <b>P:</b> {item.evalScore ?? "-"}
+        <b>P:</b> {item?.evalScore ?? "-"}
       </div>
     </div>
   );
@@ -181,9 +236,13 @@ export default function EvalControlPanel() {
 
   const openWeekDetail = useCallback(
     async (row, weekItem) => {
+      const kind = getWeekKind(weekItem, periodMeta?.currentWeekNo);
+
       if (!row || !weekItem) return;
       if (!weekItem.rotationNo) return;
-      if (weekItem.isExam) return;
+      if (kind === "EXAM") return;
+      if (kind === "OUTSIDE_ROTATION") return;
+      if (kind === "FUTURE") return;
       if (!weekItem.practiceRelevant) return;
       if (!periodId) return;
 
@@ -220,7 +279,7 @@ export default function EvalControlPanel() {
         setWeekDetailLoading(false);
       }
     },
-    [periodId]
+    [periodId, periodMeta?.currentWeekNo]
   );
 
   useEffect(() => {
@@ -243,9 +302,7 @@ export default function EvalControlPanel() {
           String(r.nameSurname || "").toLowerCase().includes(q) ||
           String(r.studentNo || "").toLowerCase().includes(q) ||
           String(r.rot1HospitalName || "").toLowerCase().includes(q) ||
-          String(r.rot2HospitalName || "").toLowerCase().includes(q) ||
-          String(r.rot1UnitName || "").toLowerCase().includes(q) ||
-          String(r.rot2UnitName || "").toLowerCase().includes(q)
+          String(r.rot2HospitalName || "").toLowerCase().includes(q)
       );
     }
 
@@ -261,18 +318,20 @@ export default function EvalControlPanel() {
         width: 82,
         render: (_, row) => {
           const item = (row.weeks || []).find((x) => Number(x.weekNo) === w);
+          const kind = getWeekKind(item, periodMeta?.currentWeekNo);
+          const clickable = kind === "NORMAL" && item?.practiceRelevant && !item?.isExam;
+
           return (
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                openWeekDetail(row, item);
+                if (clickable) {
+                  openWeekDetail(row, item);
+                }
               }}
-              style={{
-                cursor:
-                  item?.practiceRelevant && !item?.isExam ? "pointer" : "default",
-              }}
+              style={{ cursor: clickable ? "pointer" : "default" }}
             >
-              {buildWeekCell(item)}
+              {buildWeekCell(item, periodMeta?.currentWeekNo)}
             </div>
           );
         },
@@ -341,7 +400,7 @@ export default function EvalControlPanel() {
         ),
       },
     ];
-  }, [openWeekDetail]);
+  }, [openWeekDetail, periodMeta?.currentWeekNo]);
 
   const weeklyTotalScore = useMemo(() => {
     if (!weekDetail?.snapshot) return 0;
@@ -423,6 +482,16 @@ export default function EvalControlPanel() {
         </Row>
 
         <Card title="Değerlendirme Kontrol Paneli">
+          <Space wrap size={[16, 10]} style={{ marginBottom: 12 }}>
+            <LegendBadge color="#fffbe6" borderColor="#ffe58f" label="Sınav Haftası" />
+            <LegendBadge color="#f9f0ff" borderColor="#d3adf7" label="Rotasyon Dışı" />
+            <LegendBadge color="#f0f5ff" borderColor="#adc6ff" label="Gelecek Hafta" />
+            <LegendBadge color="#f6ffed" borderColor="#b7eb8f" label="Değerlendirildi" />
+            <LegendBadge color="#fff7e6" borderColor="#ffd591" label="Bekliyor" />
+            <LegendBadge color="#fff1f0" borderColor="#ffa39e" label="Devamsız" />
+            <LegendBadge color="#fafafa" borderColor="#f0f0f0" label="İşlem Yok" />
+          </Space>
+
           <Alert
             showIcon
             type="info"
@@ -506,26 +575,30 @@ export default function EvalControlPanel() {
               <Row gutter={[12, 12]}>
                 {Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((w) => {
                   const item = (activeRow.weeks || []).find((x) => Number(x.weekNo) === w);
+                  const kind = getWeekKind(item, periodMeta?.currentWeekNo);
+                  const clickable = kind === "NORMAL" && item?.practiceRelevant && !item?.isExam;
+
                   return (
                     <Col xs={24} sm={12} md={8} lg={6} key={w}>
                       <Card size="small" bodyStyle={{ padding: 10 }}>
                         <div style={{ marginBottom: 6, fontWeight: 700 }}>Hafta {w}</div>
                         <div
-                          onClick={() => openWeekDetail(activeRow, item)}
+                          onClick={() => {
+                            if (clickable) openWeekDetail(activeRow, item);
+                          }}
                           style={{
-                            cursor:
-                              item?.practiceRelevant && !item?.isExam
-                                ? "pointer"
-                                : "default",
+                            cursor: clickable ? "pointer" : "default",
                           }}
                         >
-                          {buildWeekCell(item)}
+                          {buildWeekCell(item, periodMeta?.currentWeekNo)}
                         </div>
                         <div style={{ marginTop: 8 }}>
-                          {item?.isExam ? (
-                            <Tag color="gold">{item.examLabel || "Sınav"}</Tag>
-                          ) : item?.practiceRelevant === false ? (
+                          {kind === "EXAM" ? (
+                            <Tag color="gold">{item?.examLabel || "Sınav"}</Tag>
+                          ) : kind === "OUTSIDE_ROTATION" ? (
                             <Tag color="purple">Rotasyon Dışı</Tag>
+                          ) : kind === "FUTURE" ? (
+                            <Tag color="blue">Gelecek Hafta</Tag>
                           ) : item?.evalDone ? (
                             <Tag color="green">Değerlendirildi</Tag>
                           ) : item?.practicePresent ? (

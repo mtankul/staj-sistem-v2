@@ -80,8 +80,7 @@ export default function AdminShell() {
 
   const isInStudentReports =
     loc.pathname.startsWith("/admin/report-setup") ||
-    loc.pathname.startsWith("/admin/report-templates") ||
-    loc.pathname.startsWith("/admin/report-scoring");
+    loc.pathname.startsWith("/admin/report-templates");
 
   const isInRotations =
     loc.pathname.startsWith("/admin/assignments") ||
@@ -146,7 +145,6 @@ export default function AdminShell() {
         children: [
           { key: "/admin/report-setup", icon: <FileTextOutlined />, label: "Rapor Tanımı" },
           { key: "/admin/report-templates", icon: <FileTextOutlined />, label: "Rapor Şablonları" },
-          { key: "/admin/report-scoring", icon: <DashboardOutlined />, label: "Rapor Puanlama" },
         ],
       },
 
@@ -159,8 +157,7 @@ export default function AdminShell() {
           { key: "/admin/lottery", icon: <ThunderboltOutlined />, label: "Kuralar" },
         ],
       },
-
-      { key: "/admin/scoring", icon: <DashboardOutlined />, label: "Notlar & Devamsızlık" },
+            
       { key: "/admin/settings", icon: <SettingOutlined />, label: "Sistem Ayarları" },
     ],
     []

@@ -62,6 +62,68 @@ export default function Periods() {
     load();
   }, []);
 
+  function rowToFormValues(r) {
+    return {
+      ...r,
+      courseId: r.courseId,
+      currentWeekNo: r.currentWeekNo ?? 1,
+
+      // DB -> UI mapping
+      reportWeight: r.reportWeight ?? 0.5,
+      evaluationWeight: r.evalWeight ?? 0.5,
+      practicePenaltyPerWeek: r.practicePenaltyCoef ?? 5,
+      theoryPenaltyPerWeek: r.theoryPenaltyCoef ?? 2.5,
+      rotation1Weight: r.rot1Weight ?? 0.4,
+      rotation2Weight: r.rot2Weight ?? 0.6,
+
+      lotteryRules: r.lotteryRules || {},
+    };
+  }
+
+  function formToPayload(values) {
+    const rc = Number(values.rotationCount ?? 1);
+
+    const lotteryRules =
+      rc === 1
+        ? {
+            ...(values.lotteryRules || {}),
+            rot2PreferDifferentDay: false,
+            rot2PreferDifferentHospital: false,
+            fallbackPreferHospitalDifferent: false,
+          }
+        : (values.lotteryRules || {});
+
+    return {
+      academicYear: values.academicYear,
+      term: values.term,
+      courseId: values.courseId,
+
+      practiceDays: values.practiceDays || [],
+      rotationCount: Number(values.rotationCount ?? 1),
+      isActive: !!values.isActive,
+
+      rot1StartWeek: toNum(values.rot1StartWeek, null),
+      rot1EndWeek: toNum(values.rot1EndWeek, null),
+      rot2StartWeek: rc === 2 ? toNum(values.rot2StartWeek, null) : null,
+      rot2EndWeek: rc === 2 ? toNum(values.rot2EndWeek, null) : null,
+
+      midtermWeek: toNum(values.midtermWeek, null),
+      finalWeek1: toNum(values.finalWeek1, null),
+      finalWeek2: toNum(values.finalWeek2, null),
+      currentWeekNo: toNum(values.currentWeekNo, 1),
+
+      lotteryRules,
+
+      // UI -> DB mapping
+      reportWeight: Number(values.reportWeight ?? 0.5),
+      evalWeight: Number(values.evaluationWeight ?? 0.5),
+      practicePenaltyCoef: Number(values.practicePenaltyPerWeek ?? 5),
+      theoryPenaltyCoef: Number(values.theoryPenaltyPerWeek ?? 2.5),
+      rot1Weight: Number(values.rotation1Weight ?? 0.4),
+      rot2Weight: Number(values.rotation2Weight ?? 0.6),
+    };
+  }
+
   const columns = [
     { title: "Akademik Yıl", dataIndex: "academicYear" },
     { title: "Dönem", dataIndex: "term" },
@@ -79,23 +141,23 @@ export default function Periods() {
           <Button
             onClick={() => {
               setEditing(r);
-              form.setFieldsValue({
-                ...r,
-                courseId: r.courseId,
-                currentWeekNo: r.currentWeekNo ?? 1,
-                lotteryRules: r.lotteryRules || {},
-              });
+              form.setFieldsValue(rowToFormValues(r));
               setOpen(true);
             }}
           >
             Düzenle
           </Button>
+
           <Button
             danger
             onClick={async () => {
-              await api.delete(`/periods/${r.id}`);
-              message.success("Silindi");
-              load();
+              try {
+                await api.delete(`/periods/${r.id}`);
+                message.success("Silindi");
+                load();
+              } catch (e) {
+                message.error(e?.response?.data?.error || "Silinemedi");
+              }
             }}
           >
             Sil
@@ -119,12 +181,13 @@ export default function Periods() {
 
               currentWeekNo: 1,
 
+              // UI alan isimleri
               reportWeight: 0.5,
-              evalWeight: 0.5,
-              practicePenaltyCoef: 5,
-              theoryPenaltyCoef: 2.5,
-              rot1Weight: 0.4,
-              rot2Weight: 0.6,
+              evaluationWeight: 0.5,
+              practicePenaltyPerWeek: 5,
+              theoryPenaltyPerWeek: 2.5,
+              rotation1Weight: 0.4,
+              rotation2Weight: 0.6,
 
               practiceDays: ["WED", "FRI"],
               rotationCount: 2,
@@ -159,24 +222,10 @@ export default function Periods() {
         open={open}
         onCancel={() => setOpen(false)}
         onOk={async () => {
-          const values = await form.validateFields();
-
-          const rc = Number(values.rotationCount ?? 1);
-          if (rc === 1) {
-            values.lotteryRules = {
-              ...(values.lotteryRules || {}),
-              rot2PreferDifferentDay: false,
-              rot2PreferDifferentHospital: false,
-              fallbackPreferHospitalDifferent: false,
-            };
-          }
-
-          const payload = {
-            ...values,
-            currentWeekNo: Number(values.currentWeekNo || 1),
-          };
-
           try {
+            const values = await form.validateFields();
+            const payload = formToPayload(values);
+
             if (editing) {
               await api.put(`/periods/${editing.id}`, payload);
               message.success("Güncellendi");
@@ -184,10 +233,11 @@ export default function Periods() {
               await api.post("/periods", payload);
               message.success("Eklendi");
             }
+
             setOpen(false);
             load();
           } catch (e) {
-            message.error(e?.response?.data?.error || "Kaydedilemedi");
+            message.error(e?.response?.data?.error || e?.message || "Kaydedilemedi");
           }
         }}
         width={860}
@@ -328,7 +378,7 @@ export default function Periods() {
                       style={{ marginTop: 10 }}
                       type="warning"
                       showIcon
-                      message="Not: Rotasyon başlangıç/bitiş haftaları sınav haftalarıyla çakışıyor. Bu normal olabilir."
+                      title="Not: Rotasyon başlangıç/bitiş haftaları sınav haftalarıyla çakışıyor. Bu normal olabilir."
                       description="Sistem sınav haftalarında rotasyonu otomatik “yok” sayar (sınav haftası rotasyonu ezer)."
                     />
                   )}
@@ -438,43 +488,70 @@ export default function Periods() {
           <Divider style={{ margin: "10px 0" }} />
 
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Puanlama Ayarları</div>
-          <Row gutter={12}>
-            <Col xs={24} md={4}>
-              <Form.Item name="reportWeight" label="Rapor Ağırlığı" rules={[{ required: true }]}>
-                <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={4}>
-              <Form.Item name="evalWeight" label="Değerlendirme Ağırlığı" rules={[{ required: true }]}>
-                <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={4}>
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
               <Form.Item
-                name="practicePenaltyCoef"
+                label="Rapor Ağırlığı"
+                name="reportWeight"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+              >
+                <InputNumber min={0} max={100} step={0.1} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Değerlendirme Ağırlığı"
+                name="evaluationWeight"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+              >
+                <InputNumber min={0} max={100} step={0.1} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
                 label="Uyg. Ceza (hafta)"
-                rules={[{ required: true }]}
+                name="practicePenaltyPerWeek"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
               >
-                <InputNumber min={0} step={0.5} style={{ width: "100%" }} />
+                <InputNumber min={0} step={0.1} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={4}>
+
+            <Col xs={24} md={12}>
               <Form.Item
-                name="theoryPenaltyCoef"
                 label="Teori Ceza (hafta)"
-                rules={[{ required: true }]}
+                name="theoryPenaltyPerWeek"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
               >
-                <InputNumber min={0} step={0.5} style={{ width: "100%" }} />
+                <InputNumber min={0} step={0.1} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={4}>
-              <Form.Item name="rot1Weight" label="Rot1 Ağırlık" rules={[{ required: true }]}>
-                <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Rot1 Ağırlık"
+                name="rotation1Weight"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+              >
+                <InputNumber min={0} max={100} step={0.1} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={4}>
-              <Form.Item name="rot2Weight" label="Rot2 Ağırlık" rules={[{ required: true }]}>
-                <InputNumber min={0} max={1} step={0.05} style={{ width: "100%" }} />
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Rot2 Ağırlık"
+                name="rotation2Weight"
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+              >
+                <InputNumber min={0} max={100} step={0.1} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
           </Row>

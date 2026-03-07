@@ -266,11 +266,7 @@ export default function Teachers({ periodId, setPeriodId, periods, hospitals, re
         key: "actions",
         render: (_, r) => (
           <Space>
-            {/* ✅ Yeni: dinamik şablon görüntüle */}
-            <Button size="small" onClick={() => openEval(r)} disabled={!periodId}>
-              Değerlendir
-            </Button>
-
+            {/* ✅ Yeni: dinamik şablon görüntüle */}            
             <Button size="small" onClick={() => openEdit(r)}>
               Düzenle
             </Button>
