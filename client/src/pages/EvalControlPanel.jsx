@@ -1,3 +1,4 @@
+//\staj-sistem-v2\client\src\pages/EvalControlPanel.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Card,
@@ -24,20 +25,27 @@ const { Title, Text } = Typography;
 
 const WEEK_COUNT = 17;
 
-const WEEK_OPTIONS = [{ value: "ALL", label: "Tüm Haftalar" }].concat(
-  Array.from({ length: WEEK_COUNT }, (_, i) => ({
-    value: i + 1,
-    label: `Hafta ${i + 1}`,
-  }))
-);
-
 function cellStyle(item) {
-  if (item?.isExam) return { background: "#fffbe6", border: "1px solid #ffe58f" };
-  if (item?.evalDone) return { background: "#f6ffed", border: "1px solid #b7eb8f" };
-  if (item?.practiceAbsent) return { background: "#fff1f0", border: "1px solid #ffa39e" };
+  if (item?.isExam) {
+    return { background: "#fffbe6", border: "1px solid #ffe58f" };
+  }
+
+  if (item && item?.practiceRelevant === false) {
+    return { background: "#f9f0ff", border: "1px solid #d3adf7" };
+  }
+
+  if (item?.evalDone) {
+    return { background: "#f6ffed", border: "1px solid #b7eb8f" };
+  }
+
+  if (item?.practiceAbsent) {
+    return { background: "#fff1f0", border: "1px solid #ffa39e" };
+  }
+
   if (item?.practicePresent && !item?.evalDone) {
     return { background: "#fff7e6", border: "1px solid #ffd591" };
   }
+
   return { background: "#fafafa", border: "1px solid #f0f0f0" };
 }
 
@@ -79,6 +87,25 @@ function buildWeekCell(item) {
     );
   }
 
+  if (item?.practiceRelevant === false) {
+    return (
+      <div
+        style={{
+          ...cellStyle(item),
+          borderRadius: 8,
+          padding: 6,
+          minHeight: 68,
+          fontSize: 11,
+          lineHeight: 1.25,
+        }}
+      >
+        <div style={{ fontWeight: 700, color: "#531dab" }}>Rotasyon Dışı</div>
+        <div>Uygulama yok</div>
+        <div>Değerlendirme yok</div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -107,7 +134,6 @@ export default function EvalControlPanel() {
   const [periods, setPeriods] = useState([]);
   const [periodId, setPeriodId] = useState(null);
 
-  const [weekFilter, setWeekFilter] = useState("ALL");
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -131,7 +157,6 @@ export default function EvalControlPanel() {
     if (!periodId && list.length) {
       const first = list[0];
       setPeriodId(first.id);
-      setWeekFilter(first.currentWeekNo || "ALL");
     }
   }
 
@@ -204,12 +229,6 @@ export default function EvalControlPanel() {
   }, []);
 
   useEffect(() => {
-    if (!periodId || !periods.length) return;
-    const p = periods.find((x) => x.id === periodId);
-    if (p?.currentWeekNo) setWeekFilter(p.currentWeekNo);
-  }, [periodId, periods]);
-
-  useEffect(() => {
     loadPanel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodId]);
@@ -224,59 +243,41 @@ export default function EvalControlPanel() {
           String(r.nameSurname || "").toLowerCase().includes(q) ||
           String(r.studentNo || "").toLowerCase().includes(q) ||
           String(r.rot1HospitalName || "").toLowerCase().includes(q) ||
-          String(r.rot2HospitalName || "").toLowerCase().includes(q)
+          String(r.rot2HospitalName || "").toLowerCase().includes(q) ||
+          String(r.rot1UnitName || "").toLowerCase().includes(q) ||
+          String(r.rot2UnitName || "").toLowerCase().includes(q)
       );
     }
 
-    if (weekFilter !== "ALL") {
-      const w = Number(weekFilter);
-      list = list.filter((r) => (r.weeks || []).some((x) => Number(x.weekNo) === w));
-    }
-
     return list;
-  }, [rows, search, weekFilter]);
+  }, [rows, search]);
 
   const columns = useMemo(() => {
-    const weekCols =
-      weekFilter === "ALL"
-        ? Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((w) => ({
-            title: `H${w}`,
-            width: 82,
-            render: (_, row) => {
-              const item = (row.weeks || []).find((x) => Number(x.weekNo) === w);
-              return (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openWeekDetail(row, item);
-                  }}
-                >
-                  {buildWeekCell(item)}
-                </div>
-              );
-            },
-          }))
-        : [
-            {
-              title: `H${weekFilter}`,
-              width: 90,
-              render: (_, row) => {
-                const item = (row.weeks || []).find(
-                  (x) => Number(x.weekNo) === Number(weekFilter)
-                );
-                return (
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openWeekDetail(row, item);
-                    }}
-                  >
-                    {buildWeekCell(item)}
-                  </div>
-                );
-              },
-            },
-          ];
+    const weekCols = Array.from({ length: WEEK_COUNT }, (_, i) => {
+      const w = i + 1;
+
+      return {
+        title: `H${w}`,
+        width: 82,
+        render: (_, row) => {
+          const item = (row.weeks || []).find((x) => Number(x.weekNo) === w);
+          return (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                openWeekDetail(row, item);
+              }}
+              style={{
+                cursor:
+                  item?.practiceRelevant && !item?.isExam ? "pointer" : "default",
+              }}
+            >
+              {buildWeekCell(item)}
+            </div>
+          );
+        },
+      };
+    });
 
     return [
       {
@@ -340,7 +341,7 @@ export default function EvalControlPanel() {
         ),
       },
     ];
-  }, [weekFilter, openWeekDetail]);
+  }, [openWeekDetail]);
 
   const weeklyTotalScore = useMemo(() => {
     if (!weekDetail?.snapshot) return 0;
@@ -373,13 +374,6 @@ export default function EvalControlPanel() {
                 value: p.id,
                 label: `${p.academicYear} · ${p.term} · ${p.course?.name || ""}`,
               }))}
-            />
-
-            <Select
-              style={{ width: 160 }}
-              value={weekFilter}
-              onChange={setWeekFilter}
-              options={WEEK_OPTIONS}
             />
 
             <Input.Search
@@ -442,7 +436,7 @@ export default function EvalControlPanel() {
             columns={columns}
             dataSource={filteredRows}
             pagination={{ pageSize: 20 }}
-            scroll={{ x: 2100 }}
+            scroll={{ x: 2200 }}
             onRow={(record) => ({
               onClick: () => {
                 setActiveRow(record);
@@ -530,6 +524,8 @@ export default function EvalControlPanel() {
                         <div style={{ marginTop: 8 }}>
                           {item?.isExam ? (
                             <Tag color="gold">{item.examLabel || "Sınav"}</Tag>
+                          ) : item?.practiceRelevant === false ? (
+                            <Tag color="purple">Rotasyon Dışı</Tag>
                           ) : item?.evalDone ? (
                             <Tag color="green">Değerlendirildi</Tag>
                           ) : item?.practicePresent ? (

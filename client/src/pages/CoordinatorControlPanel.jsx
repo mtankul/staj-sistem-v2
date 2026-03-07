@@ -1,3 +1,5 @@
+//:\staj-sistem-v2\client\src\pages\CoordinatorControlPanel.jsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Card,
@@ -14,12 +16,14 @@ import {
   Divider,
   Empty,
   Alert,
+  Spin
 } from "antd";
 import api from "../api";
 
 const { Text, Title } = Typography;
 
 const WEEK_COUNT = 17;
+
 const WEEK_OPTIONS = [{ value: "ALL", label: "Tüm Haftalar" }].concat(
   Array.from({ length: WEEK_COUNT }, (_, i) => ({
     value: i + 1,
@@ -60,22 +64,21 @@ function tinyBadge(label, value, color = "#555") {
 }
 
 function buildWeekCell(weekItem) {
+
   if (!weekItem) {
     return (
-      <div
-        style={{
-          borderRadius: 8,
-          padding: 6,
-          minHeight: 72,
-          fontSize: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#999",
-          background: "#fafafa",
-          border: "1px solid #f0f0f0",
-        }}
-      >
+      <div style={{
+        borderRadius:8,
+        padding:6,
+        minHeight:72,
+        fontSize:12,
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        color:"#999",
+        background:"#fafafa",
+        border:"1px solid #f0f0f0"
+      }}>
         -
       </div>
     );
@@ -83,16 +86,8 @@ function buildWeekCell(weekItem) {
 
   if (weekItem.isExam) {
     return (
-      <div
-        style={{
-          ...cellStyle(weekItem),
-          borderRadius: 8,
-          padding: 6,
-          minHeight: 72,
-          fontSize: 11,
-        }}
-      >
-        <div style={{ fontWeight: 700, color: "#ad6800" }}>Sınav</div>
+      <div style={{...cellStyle(weekItem),borderRadius:8,padding:6,minHeight:72,fontSize:11}}>
+        <div style={{fontWeight:700,color:"#ad6800"}}>Sınav</div>
         <div>{weekItem.examLabel || "-"}</div>
         <div>Rapor Yok</div>
       </div>
@@ -100,458 +95,305 @@ function buildWeekCell(weekItem) {
   }
 
   return (
-    <div
-      style={{
-        ...cellStyle(weekItem),
-        borderRadius: 8,
-        padding: 6,
-        minHeight: 72,
-        fontSize: 11,
-        lineHeight: 1.25,
-      }}
-    >
-      {tinyBadge("TY", weekItem.theoryPresent ? "Geldi" : weekItem.theoryAbsent ? "Yok" : "-", "#444")}
-      {tinyBadge("UY", weekItem.practicePresent ? "Geldi" : weekItem.practiceAbsent ? "Yok" : "-", "#444")}
-      {tinyBadge(
-        "R",
-        weekItem.reportStatus === "APPROVED"
-          ? "Onay"
-          : weekItem.reportStatus === "REVISION_REQUESTED"
-            ? "Düzelt"
-            : weekItem.reportStatus === "SUBMITTED"
-              ? "Gönder"
-              : weekItem.reportStatus === "RESUBMITTED"
-                ? "Tekrar"
-                : "-",
-        "#444"
-      )}
-      {tinyBadge("P", weekItem.reportScore ?? "-", "#444")}
+    <div style={{...cellStyle(weekItem),borderRadius:8,padding:6,minHeight:72,fontSize:11,lineHeight:1.25}}>
+      {tinyBadge("TY", weekItem.theoryPresent ? "Geldi" : weekItem.theoryAbsent ? "Yok" : "-")}
+      {tinyBadge("UY", weekItem.practicePresent ? "Geldi" : weekItem.practiceAbsent ? "Yok" : "-")}
+      {tinyBadge("R", weekItem.reportStatus || "-")}
+      {tinyBadge("P", weekItem.reportScore ?? "-")}
     </div>
   );
 }
 
-export default function CoordinatorControlPanel() {
-  const [periods, setPeriods] = useState([]);
-  const [periodId, setPeriodId] = useState(null);
+export default function CoordinatorControlPanel(){
 
-  const [weekFilter, setWeekFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
+const [periods,setPeriods]=useState([])
+const [periodId,setPeriodId]=useState(null)
 
-  const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [periodMeta, setPeriodMeta] = useState(null);
+const [search,setSearch]=useState("")
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeRow, setActiveRow] = useState(null);
+const [loading,setLoading]=useState(false)
+const [rows,setRows]=useState([])
+const [stats,setStats]=useState(null)
+const [periodMeta,setPeriodMeta]=useState(null)
 
-  async function loadPeriods() {
-    const { data } = await api.get("/periods");
-    const list = data || [];
-    setPeriods(list);
+const [drawerOpen,setDrawerOpen]=useState(false)
+const [activeRow,setActiveRow]=useState(null)
 
-    if (!periodId && list.length) {
-      const first = list[0];
-      setPeriodId(first.id);
-      setWeekFilter(first.currentWeekNo || "ALL");
-    }
-  }
+const [reportDetailOpen,setReportDetailOpen]=useState(false)
+const [reportDetailLoading,setReportDetailLoading]=useState(false)
+const [reportDetail,setReportDetail]=useState(null)
+const [reportDetailMeta,setReportDetailMeta]=useState(null)
 
-  async function loadPanel() {
-    if (!periodId) return;
-    setLoading(true);
-    try {
-      const { data } = await api.get(
-        `/teacher/coordinator-control?periodId=${encodeURIComponent(periodId)}`
-      );
-      setRows(data?.items || []);
-      setStats(data?.stats || null);
-      setPeriodMeta(data?.period || null);
-    } catch (e) {
-      setRows([]);
-      setStats(null);
-      setPeriodMeta(null);
-    } finally {
-      setLoading(false);
-    }
-  }
+async function loadPeriods(){
+const {data}=await api.get("/periods")
+setPeriods(data||[])
+if(data?.length){
+setPeriodId(data[0].id)
+}
+}
 
-  useEffect(() => {
-    loadPeriods();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+async function loadPanel(){
+if(!periodId) return
 
-  useEffect(() => {
-    if (!periodId || !periods.length) return;
-    const p = periods.find((x) => x.id === periodId);
-    if (p?.currentWeekNo) setWeekFilter(p.currentWeekNo);
-  }, [periodId, periods]);
+setLoading(true)
 
-  useEffect(() => {
-    loadPanel();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodId]);
+try{
+const {data}=await api.get(`/teacher/coordinator-control?periodId=${periodId}`)
+setRows(data?.items||[])
+setStats(data?.stats||null)
+setPeriodMeta(data?.period||null)
+}catch{
+setRows([])
+}
 
-  const filteredRows = useMemo(() => {
-    let list = [...rows];
+setLoading(false)
+}
 
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(
-        (r) =>
-          String(r.nameSurname || "").toLowerCase().includes(q) ||
-          String(r.studentNo || "").toLowerCase().includes(q) ||
-          String(r.rot1HospitalName || "").toLowerCase().includes(q) ||
-          String(r.rot2HospitalName || "").toLowerCase().includes(q) ||
-          String(r.rot1UnitName || "").toLowerCase().includes(q) ||
-          String(r.rot2UnitName || "").toLowerCase().includes(q)
-      );
-    }
+async function openReportDetail(row,weekItem){
 
-    if (weekFilter !== "ALL") {
-      const w = Number(weekFilter);
-      list = list.filter((r) => (r.weeks || []).some((x) => Number(x.weekNo) === w));
-    }
+if(!row || !weekItem) return
 
-    if (statusFilter !== "ALL") {
-      list = list.filter((r) =>
-        (r.weeks || []).some((x) => {
-          if (statusFilter === "MISSING_REPORT") {
-            return Number(x.weekNo) <= Number(periodMeta?.currentWeekNo || 1) && x.practicePresent && !x.reportStatus;
-          }
-          if (statusFilter === "ABSENT") {
-            return Number(x.weekNo) <= Number(periodMeta?.currentWeekNo || 1) && x.practiceAbsent === true;
-          }
-          return Number(x.weekNo) <= Number(periodMeta?.currentWeekNo || 1) && x.reportStatus === statusFilter;
-        })
-      );
-    }
+setReportDetailLoading(true)
+setReportDetailOpen(true)
 
-    return list;
-  }, [rows, search, weekFilter, statusFilter, periodMeta]);
+setReportDetailMeta({
+studentId:row.studentId,
+studentNo:row.studentNo,
+nameSurname:row.nameSurname,
+weekNo:weekItem.weekNo
+})
 
-  const columns = useMemo(() => {
-    const weekCols =
-      weekFilter === "ALL"
-        ? Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((w) => ({
-          title: `H${w}`,
-          dataIndex: `week_${w}`,
-          width: 82,
-          render: (_, row) => {
-            const item = (row.weeks || []).find((x) => Number(x.weekNo) === w);
-            return buildWeekCell(item);
-          },
-        }))
-        : [
-          {
-            title: `H${weekFilter}`,
-            width: 90,
-            render: (_, row) => {
-              const item = (row.weeks || []).find((x) => Number(x.weekNo) === Number(weekFilter));
-              return buildWeekCell(item);
-            },
-          },
-        ];
+try{
 
-    return [
-      {
-        title: "Öğrenci",
-        width: 150,
-        fixed: "left",
-        ellipsis: true,
-        render: (_, r) => (
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.nameSurname}
-            >
-              {r.nameSurname}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "#666",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.studentNo}
-            >
-              {r.studentNo}
-            </div>
-          </div>
-        ),
-      },
-      {
-        title: "Rot-1",
-        width: 140,
-        ellipsis: true,
-        render: (_, r) => (
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.rot1HospitalName || "-"}
-            >
-              {r.rot1HospitalName || "-"}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "#666",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.rot1UnitName || "-"}
-            >
-              {r.rot1UnitName || "-"}
-            </div>
-          </div>
-        ),
-      },
-      {
-        title: "Rot-2",
-        width: 140,
-        ellipsis: true,
-        render: (_, r) => (
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.rot2HospitalName || "-"}
-            >
-              {r.rot2HospitalName || "-"}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "#666",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-              title={r.rot2UnitName || "-"}
-            >
-              {r.rot2UnitName || "-"}
-            </div>
-          </div>
-        ),
-      },
-      ...weekCols,
-      {
-        title: "Genel",
-        width: 150,
-        fixed: "right",
-        render: (_, r) => (
-          <div style={{ fontSize: 12 }}>
-            <div>
-              <b>Ort:</b> {r.summary?.reportAverage ?? "-"}
-            </div>
-            <div>
-              <b>TY Eksik:</b> {r.summary?.theoryMissingCount ?? 0}
-            </div>
-            <div>
-              <b>UY Eksik:</b> {r.summary?.practiceMissingCount ?? 0}
-            </div>
-            <div>
-              <b>Rapor Eksik:</b> {r.summary?.missingReports ?? 0}
-            </div>
-            <div style={{ marginTop: 4 }}>
-              {r.summary?.riskLabel ? <Tag color="red">{r.summary.riskLabel}</Tag> : <Tag color="green">Normal</Tag>}
-            </div>
-          </div>
-        ),
-      },
-    ];
-  }, [weekFilter]);
+const {data}=await api.get(
+`/teacher/report-scores/detail?periodId=${periodId}&studentId=${row.studentId}&weekNo=${weekItem.weekNo}`
+)
 
-  return (
-    <div style={{ padding: 16 }}>
-      <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <Card>
-          <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
-            <Space wrap>
-              <Select
-                style={{ width: 280 }}
-                value={periodId}
-                onChange={setPeriodId}
-                placeholder="Dönem seç"
-                options={(periods || []).map((p) => ({
-                  value: p.id,
-                  label: `${p.academicYear} · ${p.term} · ${p.course?.name || ""}`,
-                }))}
-              />
+setReportDetail(data)
 
-              <Select
-                style={{ width: 160 }}
-                value={weekFilter}
-                onChange={setWeekFilter}
-                options={WEEK_OPTIONS}
-              />
+}catch{
+setReportDetail(null)
+}
 
-              <Select
-                style={{ width: 220 }}
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={[
-                  { value: "ALL", label: "Tüm Durumlar" },
-                  { value: "SUBMITTED", label: "Gönderildi" },
-                  { value: "RESUBMITTED", label: "Yeniden Gönderildi" },
-                  { value: "REVISION_REQUESTED", label: "Düzeltme Bekliyor" },
-                  { value: "APPROVED", label: "Onaylandı" },
-                  { value: "MISSING_REPORT", label: "Rapor Eksik" },
-                  { value: "ABSENT", label: "Devamsız" },
-                ]}
-              />
+setReportDetailLoading(false)
 
-              <Input.Search
-                allowClear
-                placeholder="Öğrenci / no / hastane / birim ara"
-                style={{ width: 280 }}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+}
 
-              {periodMeta ? (
-                <Tag color="purple">Aktif Hafta: {periodMeta.currentWeekNo}</Tag>
-              ) : null}
-            </Space>
-          </Space>
-        </Card>
+useEffect(()=>{loadPeriods()},[])
+useEffect(()=>{loadPanel()},[periodId])
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Toplam Öğrenci" value={stats?.totalStudents ?? 0} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Gönderilen" value={stats?.submittedCount ?? 0} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Düzeltme" value={stats?.revisionCount ?? 0} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Onaylanan" value={stats?.approvedCount ?? 0} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Eksik TY" value={stats?.theoryMissingCount ?? 0} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={4}>
-            <Card><Statistic title="Eksik UY" value={stats?.practiceMissingCount ?? 0} /></Card>
-          </Col>
-        </Row>
+const filteredRows=useMemo(()=>{
+let list=[...rows]
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Card><Statistic title="Eksik Rapor" value={stats?.missingReports ?? 0} /></Card>
-          </Col>
-        </Row>
+if(search){
+const q=search.toLowerCase()
+list=list.filter(r=>
+r.nameSurname?.toLowerCase().includes(q) ||
+r.studentNo?.toLowerCase().includes(q)
+)
+}
 
-        <Card title="Koordinatör Kontrol Paneli">
-          <Alert
-            showIcon
-            type="info"
-            style={{ marginBottom: 12 }}
-            message="Bir satıra tıklayarak öğrencinin haftalık detaylarını sağ panelde açabilirsiniz."
-          />
+return list
+},[rows,search])
 
-          <Table
-            rowKey="studentId"
-            loading={loading}
-            columns={columns}
-            dataSource={filteredRows}
-            pagination={{ pageSize: 20 }}
-            scroll={{ x: 2100 }}
-            onRow={(record) => ({
-              onClick: () => {
-                setActiveRow(record);
-                setDrawerOpen(true);
-              },
-              style: { cursor: "pointer" },
-            })}
-          />
-        </Card>
-      </Space>
+const columns=[
 
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        width={980}
-        title="Öğrenci Detayı"
-        destroyOnClose
-      >
-        {!activeRow ? (
-          <Empty description="Öğrenci seçilmedi" />
-        ) : (
-          <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <Card>
-              <Title level={4} style={{ marginTop: 0, marginBottom: 8 }}>
-                {activeRow.nameSurname}
-              </Title>
-              <Space wrap>
-                <Tag>{activeRow.studentNo}</Tag>
-                <Tag color="blue">R1: {activeRow.rot1HospitalName || "-"}</Tag>
-                <Tag color="purple">R2: {activeRow.rot2HospitalName || "-"}</Tag>
-                {activeRow.summary?.riskLabel ? <Tag color="red">{activeRow.summary.riskLabel}</Tag> : null}
-              </Space>
+{
+title:"Öğrenci",
+width:160,
+fixed:"left",
+render:(_,r)=>(
+<div>
+<div style={{fontWeight:700}}>{r.nameSurname}</div>
+<div style={{fontSize:12,color:"#666"}}>{r.studentNo}</div>
+</div>
+)
+},
 
-              <Divider />
+{
+title:"Rot-1",
+width:150,
+render:(_,r)=>(
+<>
+<div>{r.rot1HospitalName}</div>
+<div style={{fontSize:12,color:"#666"}}>{r.rot1UnitName}</div>
+</>
+)
+},
 
-              <Row gutter={[12, 12]}>
-                <Col span={6}>
-                  <Statistic title="Rapor Ortalaması" value={activeRow.summary?.reportAverage ?? "-"} />
-                </Col>
-                <Col span={6}>
-                  <Statistic title="Eksik TY" value={activeRow.summary?.theoryMissingCount ?? 0} />
-                </Col>
-                <Col span={6}>
-                  <Statistic title="Eksik UY" value={activeRow.summary?.practiceMissingCount ?? 0} />
-                </Col>
-                <Col span={6}>
-                  <Statistic title="Eksik Rapor" value={activeRow.summary?.missingReports ?? 0} />
-                </Col>
-              </Row>
-            </Card>
+{
+title:"Rot-2",
+width:150,
+render:(_,r)=>(
+<>
+<div>{r.rot2HospitalName}</div>
+<div style={{fontSize:12,color:"#666"}}>{r.rot2UnitName}</div>
+</>
+)
+},
 
-            <Card title="Hafta Durumları">
-              <Row gutter={[12, 12]}>
-                {Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((w) => {
-                  const item = (activeRow.weeks || []).find((x) => Number(x.weekNo) === w);
-                  return (
-                    <Col xs={24} sm={12} md={8} lg={6} key={w}>
-                      <Card size="small" bodyStyle={{ padding: 10 }}>
-                        <div style={{ marginBottom: 6, fontWeight: 700 }}>Hafta {w}</div>
-                        {buildWeekCell(item)}
-                        <div style={{ marginTop: 8 }}>
-                          {item?.isExam ? (
-                            <Tag color="gold">{item.examLabel || "Sınav"}</Tag>
-                          ) : item?.reportStatus ? (
-                            statusTag(item.reportStatus)
-                          ) : (
-                            <Tag>Rapor Yok</Tag>
-                          )}
-                        </div>
-                      </Card>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </Card>
-          </Space>
-        )}
-      </Drawer>
-    </div>
-  );
+...Array.from({length:WEEK_COUNT},(_,i)=>{
+
+const week=i+1
+
+return{
+
+title:`H${week}`,
+width:82,
+
+render:(_,row)=>{
+
+const item=(row.weeks||[]).find(x=>x.weekNo===week)
+
+return(
+
+<div
+onClick={(e)=>{
+e.stopPropagation()
+openReportDetail(row,item)
+}}
+style={{cursor:"pointer"}}
+>
+
+{buildWeekCell(item)}
+
+</div>
+
+)
+
+}
+
+}
+
+})
+
+]
+
+return(
+
+<div style={{padding:16}}>
+
+<Card>
+
+<Space>
+
+<Select
+style={{width:260}}
+value={periodId}
+onChange={setPeriodId}
+options={periods.map(p=>({
+value:p.id,
+label:`${p.academicYear} · ${p.term}`
+}))}
+/>
+
+<Input.Search
+placeholder="Öğrenci ara"
+value={search}
+onChange={(e)=>setSearch(e.target.value)}
+style={{width:260}}
+/>
+
+{periodMeta && (
+<Tag color="purple">Aktif Hafta: {periodMeta.currentWeekNo}</Tag>
+)}
+
+</Space>
+
+</Card>
+
+<Card title="Koordinatör Kontrol Paneli" style={{marginTop:16}}>
+
+<Table
+rowKey="studentId"
+loading={loading}
+columns={columns}
+dataSource={filteredRows}
+pagination={{pageSize:20}}
+scroll={{x:2100}}
+onRow={(record)=>({
+onClick:()=>{
+setActiveRow(record)
+setDrawerOpen(true)
+}
+})}
+/>
+
+</Card>
+
+{/* RAPOR DRAWER */}
+
+<Drawer
+open={reportDetailOpen}
+onClose={()=>setReportDetailOpen(false)}
+width={900}
+title="Haftalık Rapor Detayı"
+>
+
+{reportDetailLoading ? (
+
+<div style={{padding:40,textAlign:"center"}}>
+<Spin/>
+</div>
+
+) : !reportDetail ? (
+
+<Empty description="Rapor bulunamadı"/>
+
+) : (
+
+<Space direction="vertical" style={{width:"100%"}} size={16}>
+
+<Card>
+
+<Title level={4}>{reportDetailMeta?.nameSurname}</Title>
+
+<Space>
+<Tag>{reportDetailMeta?.studentNo}</Tag>
+<Tag color="blue">Hafta {reportDetailMeta?.weekNo}</Tag>
+<Tag color="green">Toplam Puan: {reportDetail?.totalScore}</Tag>
+</Space>
+
+</Card>
+
+<Card title="Rapor Soruları">
+
+{(reportDetail.questions||[]).map((q,i)=>(
+
+<Card key={q.id} size="small" style={{marginBottom:12}}>
+
+<Text strong>{i+1}. {q.text}</Text>
+
+<Divider/>
+
+<div style={{
+padding:12,
+background:"#fafafa",
+border:"1px solid #f0f0f0",
+borderRadius:8
+}}>
+{q.answerText}
+</div>
+
+<Space style={{marginTop:10}}>
+<Tag color="blue">Max: {q.points}</Tag>
+<Tag color="green">Puan: {q.score}</Tag>
+</Space>
+
+</Card>
+
+))}
+
+</Card>
+
+</Space>
+
+)}
+
+</Drawer>
+
+</div>
+
+)
+
 }
