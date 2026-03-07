@@ -4,6 +4,7 @@ import { Route } from "react-router-dom";
 import TeacherDashboard from "../pages/TeacherDashboard.jsx";
 import TeacherScoring from "../pages/TeacherScoring.jsx";
 import TeacherReportScoring from "../pages/TeacherReportScoring.jsx";
+import CoordinatorControlPanel from "../pages/CoordinatorControlPanel.jsx";
 
 /**
  * CANONICAL: Teacher route fragments
@@ -19,6 +20,7 @@ export function TeacherRoutes() {
       <Route index element={<TeacherDashboard />} />
       <Route path="scoring" element={<TeacherScoring />} />
       <Route path="report-scoring" element={<TeacherReportScoring />} />
+      <Route path="control-panel" element={<CoordinatorControlPanel />} />
     </>
   );
 }

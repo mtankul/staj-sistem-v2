@@ -68,7 +68,7 @@ model Period {
 
   students  Student[]
   createdAt DateTime  @default(now())
-
+ 
   practiceDays  Json? // ör: ["WED","FRI"]
   rotationCount Int   @default(1)
 
@@ -76,6 +76,8 @@ model Period {
   rot1EndWeek   Int?
   rot2StartWeek Int?
   rot2EndWeek   Int?
+
+  currentWeekNo Int? @default(1)
 
   assignments  StudentAssignment[]
   lotteryRules Json?
@@ -574,4 +576,23 @@ model WeeklyEvaluationItemScore {
   @@unique([periodId, studentId, rotationNo, weekNo, itemId], name: "uniq_evalitem_week")
   @@index([periodId, rotationNo, weekNo])
   @@index([studentId])
+}
+
+model WeeklyReportQuestionScore {
+  id            String   @id @default(cuid())
+
+  periodId      String
+  studentId     String
+  rotationNo    Int
+  weekNo        Int
+  questionId    String
+
+  score         Float?   @default(0)
+  comment       String?
+
+  gradedBy      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([periodId, studentId, rotationNo, weekNo, questionId], name: "uniq_report_question_score")
 }

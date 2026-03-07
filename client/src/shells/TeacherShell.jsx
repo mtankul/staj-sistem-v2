@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Layout, Menu, Typography } from "antd";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
-import { CalendarOutlined, UserOutlined, FileTextOutlined } from "@ant-design/icons";
+import {
+  CalendarOutlined,
+  UserOutlined,
+  FileTextOutlined,
+  DashboardOutlined,
+} from "@ant-design/icons";
 
 import api from "../api";
 import { clearAuth } from "../utils/authStorage";
@@ -38,11 +43,28 @@ export default function TeacherShell() {
   const items = useMemo(() => {
     const base = [
       { key: "/teacher", icon: <UserOutlined />, label: "Panel" },
-      { key: "/teacher/scoring", icon: <CalendarOutlined />, label: "Devamsızlık & Notlar" },
+      {
+        key: "/teacher/scoring",
+        icon: <CalendarOutlined />,
+        label: "Devamsızlık & Notlar",
+      },
     ];
+
     if (me?.isCoordinator) {
-      base.push({ key: "/teacher/report-scoring", icon: <FileTextOutlined />, label: "Rapor Puanlama" });
+      base.push(
+        {
+          key: "/teacher/control-panel",
+          icon: <DashboardOutlined />,
+          label: "Koordinatör Kontrol Paneli",
+        },
+        {
+          key: "/teacher/report-scoring",
+          icon: <FileTextOutlined />,
+          label: "Rapor Puanlama",
+        }
+      );
     }
+
     return base;
   }, [me?.isCoordinator]);
 
@@ -56,7 +78,16 @@ export default function TeacherShell() {
       <Sider width={240} theme="dark">
         <div style={{ padding: 16, fontWeight: 800, color: "#fff" }}>
           Gözlemci Paneli
-          <div style={{ fontSize: 12, opacity: 0.75, fontWeight: 500, marginTop: 4 }}>TDS · Mesleki Uygulama</div>
+          <div
+            style={{
+              fontSize: 12,
+              opacity: 0.75,
+              fontWeight: 500,
+              marginTop: 4,
+            }}
+          >
+            TDS · Mesleki Uygulama
+          </div>
         </div>
 
         <div
@@ -96,10 +127,18 @@ export default function TeacherShell() {
             {me?.nameSurname || "—"}
           </div>
 
-          <div style={{ fontSize: 12, opacity: 0.75, color: "#fff", marginTop: 4 }}>{roleText}</div>
+          <div style={{ fontSize: 12, opacity: 0.75, color: "#fff", marginTop: 4 }}>
+            {roleText}
+          </div>
         </div>
 
-        <Menu theme="dark" mode="inline" items={items} selectedKeys={selectedKeys} onClick={(e) => nav(e.key)} />
+        <Menu
+          theme="dark"
+          mode="inline"
+          items={items}
+          selectedKeys={selectedKeys}
+          onClick={(e) => nav(e.key)}
+        />
       </Sider>
 
       <Layout>
@@ -113,7 +152,9 @@ export default function TeacherShell() {
             paddingInline: 16,
           }}
         >
-          <Typography.Text style={{ fontWeight: 700 }}>{roleText}</Typography.Text>
+          <Typography.Text style={{ fontWeight: 700 }}>
+            {roleText}
+          </Typography.Text>
 
           <a
             href="#"

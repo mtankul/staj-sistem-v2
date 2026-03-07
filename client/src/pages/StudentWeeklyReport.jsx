@@ -1,13 +1,26 @@
-// client/src/pages/StudentWeeklyReport.jsx
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Card, Select, Space, Typography, Button, message, Tag, Divider, Input, Alert, Switch } from "antd";
+import {
+  Card,
+  Select,
+  Space,
+  Typography,
+  Button,
+  message,
+  Tag,
+  Divider,
+  Input,
+  Alert,
+  Switch,
+} from "antd";
 import api from "../api";
 import ReactMarkdown from "react-markdown";
 
 const { Title, Text } = Typography;
 
-const WEEK_OPTIONS = Array.from({ length: 17 }, (_, i) => ({ value: i + 1, label: `Hafta ${i + 1}` }));
+const WEEK_OPTIONS = Array.from({ length: 17 }, (_, i) => ({
+  value: i + 1,
+  label: `Hafta ${i + 1}`,
+}));
 
 function getTextAreaDom(refObj) {
   return refObj?.resizableTextArea?.textArea || refObj?.textArea || refObj?.input || refObj || null;
@@ -43,7 +56,14 @@ function wrapSelection(textareaRefObj, wrapper) {
 }
 
 function statusTag(status) {
-  return <Tag>{status}</Tag>;
+  const map = {
+    DRAFT: <Tag color="default">Taslak</Tag>,
+    SUBMITTED: <Tag color="blue">Gönderildi</Tag>,
+    RESUBMITTED: <Tag color="cyan">Yeniden Gönderildi</Tag>,
+    REVISION_REQUESTED: <Tag color="orange">Düzeltme İstendi</Tag>,
+    APPROVED: <Tag color="green">Onaylandı</Tag>,
+  };
+  return map[status] || <Tag>{status || "DRAFT"}</Tag>;
 }
 
 export default function StudentWeeklyReport() {
@@ -58,17 +78,25 @@ export default function StudentWeeklyReport() {
   const [answers, setAnswers] = useState([]);
 
   const [draft, setDraft] = useState({});
-
-  // ✅ Preview toggle
   const [showPreview, setShowPreview] = useState(true);
 
   const textareaRefs = useRef({});
+
+  const selectedPeriod = useMemo(
+    () => (periods || []).find((p) => p.id === periodId) || null,
+    [periods, periodId]
+  );
 
   async function loadPeriods() {
     const { data } = await api.get("/periods");
     const list = data || [];
     setPeriods(list);
-    if (!periodId && list.length) setPeriodId(list[0].id);
+
+    if (!periodId && list.length) {
+      const first = list[0];
+      setPeriodId(first.id);
+      setWeekNo(first.currentWeekNo || 1);
+    }
   }
 
   async function loadWeek() {
@@ -100,13 +128,26 @@ export default function StudentWeeklyReport() {
   }, []);
 
   useEffect(() => {
+    if (!periodId || !periods.length) return;
+    const p = periods.find((x) => x.id === periodId);
+    if (p?.currentWeekNo) {
+      setWeekNo(p.currentWeekNo);
+    }
+  }, [periodId, periods]);
+
+  useEffect(() => {
     loadWeek();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodId, weekNo]);
 
   const canEdit = !!meta?.canEdit;
   const canSeeScores = !!meta?.canSeeScores;
+  const canSeeComments = !!meta?.canSeeComments;
+  const canSeeRevisionNote = !!meta?.canSeeRevisionNote;
+
   const hasQuestions = (questions || []).length > 0;
+  const lockReason = meta?.lockReason || null;
+  const practiceOpen = meta?.practiceOpen !== false;
 
   const periodOptions = useMemo(
     () =>
@@ -119,7 +160,9 @@ export default function StudentWeeklyReport() {
 
   async function onSave() {
     if (!periodId || !weekNo) return;
-    if (!canEdit) return message.warning("Rapor kilitli. Düzenleme yapılamaz.");
+    if (!canEdit) {
+      return message.warning(lockReason || "Bu hafta rapor düzenlemeye kapalı.");
+    }
 
     const payloadAnswers = (questions || []).map((q) => ({
       questionId: q.id,
@@ -140,7 +183,9 @@ export default function StudentWeeklyReport() {
 
   async function onSubmit() {
     if (!periodId || !weekNo) return;
-    if (!canEdit) return message.warning("Rapor kilitli. Gönderilemez.");
+    if (!canEdit) {
+      return message.warning(lockReason || "Bu hafta rapor gönderimine kapalı.");
+    }
 
     setLoading(true);
     try {
@@ -174,6 +219,13 @@ export default function StudentWeeklyReport() {
               </div>
 
               <div>
+                <Text type="secondary">Aktif Hafta</Text>
+                <div style={{ marginTop: 10 }}>
+                  <Tag color="purple">Hafta {selectedPeriod?.currentWeekNo ?? "-"}</Tag>
+                </div>
+              </div>
+
+              <div>
                 <Text type="secondary">Hafta</Text>
                 <div style={{ marginTop: 6 }}>
                   <Select style={{ width: 160 }} value={weekNo} onChange={setWeekNo} options={WEEK_OPTIONS} />
@@ -189,16 +241,34 @@ export default function StudentWeeklyReport() {
                 <div>
                   <Text type="secondary">Sınav</Text>
                   <div style={{ marginTop: 10 }}>
-                    <Tag>{meta.exam}</Tag>
+                    <Tag color="gold">{meta.exam}</Tag>
                   </div>
                 </div>
               ) : null}
+
+              <div>
+                <Text type="secondary">Uygulama</Text>
+                <div style={{ marginTop: 10 }}>
+                  <Tag color={practiceOpen ? "green" : "red"}>
+                    {practiceOpen ? "Açık" : "Kapalı"}
+                  </Tag>
+                </div>
+              </div>
+
+              <div>
+                <Text type="secondary">Yoklama</Text>
+                <div style={{ marginTop: 10 }}>
+                  <Tag color={meta?.practicePresent ? "green" : "red"}>
+                    {meta?.practicePresent ? "Geldi" : "Geldi işaretli değil"}
+                  </Tag>
+                </div>
+              </div>
 
               {canSeeScores && (meta?.totalScore ?? null) !== null ? (
                 <div>
                   <Text type="secondary">Toplam</Text>
                   <div style={{ marginTop: 10 }}>
-                    <Tag>{meta.totalScore}</Tag>
+                    <Tag color="blue">{meta.totalScore}</Tag>
                   </div>
                 </div>
               ) : null}
@@ -225,16 +295,23 @@ export default function StudentWeeklyReport() {
           {!canEdit ? (
             <div style={{ marginTop: 12 }}>
               <Alert
-                type="info"
+                type="warning"
                 showIcon
-                message="Bu rapor kilitli. Öğretmen düzeltmeye gönderirse tekrar düzenleyebilirsiniz."
+                message="Bu hafta rapor yazamazsınız."
+                description={lockReason || "Bu rapor şu anda düzenlenemez."}
               />
             </div>
           ) : null}
 
-          {meta?.revisionNote ? (
+          {canSeeRevisionNote && meta?.revisionNote ? (
             <div style={{ marginTop: 12 }}>
               <Alert type="warning" showIcon message="Düzeltme Notu" description={meta.revisionNote} />
+            </div>
+          ) : null}
+
+          {canSeeComments && meta?.teacherNote && meta?.teacherNote !== meta?.revisionNote ? (
+            <div style={{ marginTop: 12 }}>
+              <Alert type="info" showIcon message="Öğretmen Notu" description={meta.teacherNote} />
             </div>
           ) : null}
         </Card>
@@ -285,7 +362,9 @@ export default function StudentWeeklyReport() {
                           I
                         </Button>
 
-                        <Text type="secondary">Not: Bu editör Markdown yazar. Aşağıda önizlemede kalın/italik görünür.</Text>
+                        <Text type="secondary">
+                          Not: Bu editör Markdown yazar. Aşağıda önizlemede kalın/italik görünür.
+                        </Text>
                       </Space>
 
                       <div>
@@ -319,27 +398,31 @@ export default function StudentWeeklyReport() {
                         </div>
                       ) : null}
 
-                      {canSeeScores ? (
+                      {(canSeeScores || canSeeComments) && (
                         <>
                           <Divider style={{ margin: "10px 0" }} />
 
-                          <Space wrap>
-                            <Text type="secondary">Soru Puanı:</Text>
-                            <Tag>{existing?.teacherScore ?? "-"}</Tag>
-                          </Space>
+                          {canSeeScores && (
+                            <Space wrap>
+                              <Text type="secondary">Soru Puanı:</Text>
+                              <Tag color="blue">{existing?.teacherScore ?? "-"}</Tag>
+                            </Space>
+                          )}
 
-                          <div>
-                            <Text type="secondary">Hoca Yorumu</Text>
-                            <div style={{ marginTop: 6 }}>
-                              {existing?.teacherComment ? (
-                                <div style={{ whiteSpace: "pre-wrap" }}>{existing.teacherComment}</div>
-                              ) : (
-                                <Text type="secondary">-</Text>
-                              )}
+                          {canSeeComments && (
+                            <div>
+                              <Text type="secondary">Koordinatör Yorumu</Text>
+                              <div style={{ marginTop: 6 }}>
+                                {existing?.teacherComment ? (
+                                  <div style={{ whiteSpace: "pre-wrap" }}>{existing.teacherComment}</div>
+                                ) : (
+                                  <Text type="secondary">-</Text>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </>
-                      ) : null}
+                      )}
                     </Space>
                   </Card>
                 );

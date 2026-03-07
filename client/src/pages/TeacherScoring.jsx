@@ -16,6 +16,7 @@ import {
   Rate,
   Tag,
   Divider,
+  Modal,
 } from "antd";
 import api from "../api";
 
@@ -65,6 +66,11 @@ export default function TeacherScoring() {
   const isCoordinatorUser = !!me?.isCoordinator;
   const canEditTheory = !!me?.isCoordinator && scope === "coordinator";
 
+  const selectedPeriod = useMemo(
+    () => (periods || []).find((p) => p.id === periodId) || null,
+    [periods, periodId]
+  );
+
   const activeStudent = useMemo(() => {
     if (!evalStudentId) return null;
     return rows.find((r) => r.studentId === evalStudentId) || null;
@@ -79,7 +85,12 @@ export default function TeacherScoring() {
     const { data } = await api.get("/periods");
     const list = data || [];
     setPeriods(list);
-    if (!periodId && list.length) setPeriodId(list[0].id);
+
+    if (!periodId && list.length) {
+      const first = list[0];
+      setPeriodId(first.id);
+      setWeekNo(first.currentWeekNo || 1);
+    }
   }
 
   const loadList = useCallback(async () => {
@@ -109,29 +120,159 @@ export default function TeacherScoring() {
   }, []);
 
   useEffect(() => {
+    if (!periodId || !periods.length) return;
+    const p = periods.find((x) => x.id === periodId);
+    if (p?.currentWeekNo) setWeekNo(p.currentWeekNo);
+  }, [periodId, periods]);
+
+  useEffect(() => {
     loadList();
   }, [loadList]);
 
   async function updateAttendance(row, patch) {
-    try {
-      await api.put("/teacher/attendance", {
+    const applyRowPatch = () => {
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.studentId !== row.studentId) return r;
+
+          if (patch.theoryAbsent !== undefined) {
+            return { ...r, theoryAbsent: !!patch.theoryAbsent };
+          }
+
+          if (patch.practiceAbsent !== undefined) {
+            const nextPracticeAbsent = !!patch.practiceAbsent;
+            const nextEvalDone = nextPracticeAbsent ? false : r.evalDone;
+
+            return {
+              ...r,
+              practiceAbsent: nextPracticeAbsent,
+              evalDone: nextEvalDone,
+            };
+          }
+
+          return r;
+        })
+      );
+    };
+
+    const sendAttendance = async (extra = {}) => {
+      return api.put("/teacher/attendance", {
         periodId,
         studentId: row.studentId,
         weekNo,
         rotationNo: row.rotationNo,
+        scope,
         ...patch,
+        ...extra,
       });
+    };
 
-      setRows((prev) =>
-        prev.map((r) => {
-          if (r.studentId !== row.studentId) return r;
-          if (patch.theoryAbsent !== undefined) return { ...r, theoryAbsent: !!patch.theoryAbsent };
-          if (patch.practiceAbsent !== undefined) return { ...r, practiceAbsent: !!patch.practiceAbsent };
-          return r;
-        })
-      );
+    try {
+      await sendAttendance();
+      applyRowPatch();
+      return;
     } catch (e) {
-      message.error(e?.response?.data?.error || "Kaydedilemedi");
+      const data = e?.response?.data || {};
+      const code = data?.error;
+      const msg = data?.message || data?.error || "Kaydedilemedi";
+
+      if (code === "CONFIRM_CLEAR_EVALUATION") {
+        Modal.confirm({
+          title: "Değerlendirme Notları Silinsin mi?",
+          content: msg,
+          okText: "Evet",
+          cancelText: "Hayır",
+          onOk: async () => {
+            try {
+              await sendAttendance({ confirmClearEvaluation: true });
+              applyRowPatch();
+              message.success("Yoklama güncellendi, haftalık değerlendirme notları silindi.");
+            } catch (err2) {
+              message.error(err2?.response?.data?.message || err2?.response?.data?.error || "İşlem başarısız");
+            }
+          },
+        });
+        return;
+      }
+
+      if (code === "REPORT_LOCKED_FOR_OBSERVER") {
+        Modal.warning({
+          title: "İşlem Engellendi",
+          content: msg,
+          okText: "Tamam",
+        });
+        return;
+      }
+
+      if (code === "CONFIRM_DELETE_REPORT_STEP1") {
+        Modal.confirm({
+          title: "Rapor Silinecek",
+          content: msg,
+          okText: "Devam Et",
+          cancelText: "Vazgeç",
+          onOk: async () => {
+            try {
+              await sendAttendance({ confirmDeleteReportStep1: true });
+              applyRowPatch();
+              message.success("İşlem tamamlandı.");
+            } catch (err2) {
+              const d2 = err2?.response?.data || {};
+              const c2 = d2?.error;
+              const m2 = d2?.message || d2?.error || "İşlem başarısız";
+
+              if (c2 === "CONFIRM_DELETE_REPORT_STEP2") {
+                Modal.confirm({
+                  title: "Son Onay",
+                  content: m2,
+                  okText: "Evet, Sil",
+                  cancelText: "Hayır",
+                  onOk: async () => {
+                    try {
+                      await sendAttendance({
+                        confirmDeleteReportStep1: true,
+                        confirmDeleteReportStep2: true,
+                      });
+                      applyRowPatch();
+                      await loadList();
+                      message.success("Rapor ve ilgili puanlar silindi, yoklama Yok olarak güncellendi.");
+                    } catch (err3) {
+                      message.error(err3?.response?.data?.message || err3?.response?.data?.error || "İşlem başarısız");
+                    }
+                  },
+                });
+                return;
+              }
+
+              message.error(m2);
+            }
+          },
+        });
+        return;
+      }
+
+      if (code === "CONFIRM_DELETE_REPORT_STEP2") {
+        Modal.confirm({
+          title: "Son Onay",
+          content: msg,
+          okText: "Evet, Sil",
+          cancelText: "Hayır",
+          onOk: async () => {
+            try {
+              await sendAttendance({
+                confirmDeleteReportStep1: true,
+                confirmDeleteReportStep2: true,
+              });
+              applyRowPatch();
+              message.success("Rapor ve ilgili puanlar silindi, yoklama Yok olarak güncellendi.");
+            } catch (err2) {
+              message.error(err2?.response?.data?.message || err2?.response?.data?.error || "İşlem başarısız");
+            }
+          },
+        });
+        return;
+      }
+
+      message.error(msg);
     }
   }
 
@@ -205,7 +346,6 @@ export default function TeacherScoring() {
         return next;
       });
 
-      // ✅ Anlık UX: bu hafta en az 1 madde >0 ise evalDone = true
       if (evalStudentId) {
         if (Number(score || 0) > 0) {
           setRows((prev) => prev.map((r) => (r.studentId === evalStudentId ? { ...r, evalDone: true } : r)));
@@ -477,6 +617,15 @@ export default function TeacherScoring() {
           </Space>
         }
       >
+        {periodId ? (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`Aktif Hafta: Hafta ${selectedPeriod?.currentWeekNo || "-"}`}
+          />
+        ) : null}
+
         {infoBanner}
 
         <Table
@@ -495,7 +644,7 @@ export default function TeacherScoring() {
         open={evalOpen}
         onClose={() => {
           setEvalOpen(false);
-          loadList(); // ✅ backend’den evalDone’ı tekrar çek (artık 500 yoksa kesin doğru gelecek)
+          loadList();
         }}
         width={980}
         destroyOnClose
@@ -568,7 +717,9 @@ export default function TeacherScoring() {
                           <Divider style={{ margin: "10px 0" }} />
 
                           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <Typography.Text style={{ width: 110, fontWeight: 800, color: "#334155" }}>Puan (1–5)</Typography.Text>
+                            <Typography.Text style={{ width: 110, fontWeight: 800, color: "#334155" }}>
+                              Puan (1–5)
+                            </Typography.Text>
 
                             <Rate
                               count={5}

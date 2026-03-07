@@ -68,6 +68,11 @@ export default function Periods() {
     { title: "Ders", render: (_, r) => r.course?.name },
     { title: "Aktif", dataIndex: "isActive", render: (v) => (v ? "Evet" : "Hayır") },
     {
+      title: "Aktif Hafta",
+      dataIndex: "currentWeekNo",
+      render: (v) => v ?? 1,
+    },
+    {
       title: "İşlem",
       render: (_, r) => (
         <Space>
@@ -77,6 +82,7 @@ export default function Periods() {
               form.setFieldsValue({
                 ...r,
                 courseId: r.courseId,
+                currentWeekNo: r.currentWeekNo ?? 1,
                 lotteryRules: r.lotteryRules || {},
               });
               setOpen(true);
@@ -111,6 +117,8 @@ export default function Periods() {
             form.setFieldsValue({
               isActive: false,
 
+              currentWeekNo: 1,
+
               reportWeight: 0.5,
               evalWeight: 0.5,
               practicePenaltyCoef: 5,
@@ -121,7 +129,6 @@ export default function Periods() {
               practiceDays: ["WED", "FRI"],
               rotationCount: 2,
 
-              // ✅ Default senaryolarına yakın
               rot1StartWeek: 3,
               rot1EndWeek: 9,
               rot2StartWeek: 10,
@@ -164,12 +171,17 @@ export default function Periods() {
             };
           }
 
+          const payload = {
+            ...values,
+            currentWeekNo: Number(values.currentWeekNo || 1),
+          };
+
           try {
             if (editing) {
-              await api.put(`/periods/${editing.id}`, values);
+              await api.put(`/periods/${editing.id}`, payload);
               message.success("Güncellendi");
             } else {
-              await api.post("/periods", values);
+              await api.post("/periods", payload);
               message.success("Eklendi");
             }
             setOpen(false);
@@ -204,7 +216,12 @@ export default function Periods() {
               rules={[{ required: true, message: "En az 1 gün seç" }]}
               style={{ minWidth: 360 }}
             >
-              <Select mode="multiple" options={dayOptions} placeholder="Örn: Çarşamba, Cuma" style={{ width: "100%" }} />
+              <Select
+                mode="multiple"
+                options={dayOptions}
+                placeholder="Örn: Çarşamba, Cuma"
+                style={{ width: "100%" }}
+              />
             </Form.Item>
 
             <Form.Item name="rotationCount" label="Rotasyon Sayısı" rules={[{ required: true }]}>
@@ -224,7 +241,6 @@ export default function Periods() {
 
           <Divider style={{ margin: "10px 0" }} />
 
-          {/* ✅ ROTASYON HAFTALARI */}
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Rotasyon Haftaları</div>
 
           <Form.Item shouldUpdate noStyle>
@@ -240,12 +256,14 @@ export default function Periods() {
               const f1 = toNum(getFieldValue("finalWeek1"));
               const f2 = toNum(getFieldValue("finalWeek2"));
 
-              // sınav haftası aralıklara denk geliyor mu?
               const clash =
                 inRange(mid, r1s, r1e) ||
                 inRange(f1, r1s, r1e) ||
                 inRange(f2, r1s, r1e) ||
-                (rc === 2 && (inRange(mid, r2s, r2e) || inRange(f1, r2s, r2e) || inRange(f2, r2s, r2e)));
+                (rc === 2 &&
+                  (inRange(mid, r2s, r2e) ||
+                    inRange(f1, r2s, r2e) ||
+                    inRange(f2, r2s, r2e)));
 
               return (
                 <>
@@ -274,11 +292,14 @@ export default function Periods() {
                       <Form.Item
                         name="rot2StartWeek"
                         label="Rotasyon 2 Başlangıç"
-                        rules={
-                          rc === 2 ? [{ required: true, message: "Zorunlu" }] : []
-                        }
+                        rules={rc === 2 ? [{ required: true, message: "Zorunlu" }] : []}
                       >
-                        <InputNumber min={1} max={30} style={{ width: "100%" }} disabled={rc !== 2} />
+                        <InputNumber
+                          min={1}
+                          max={30}
+                          style={{ width: "100%" }}
+                          disabled={rc !== 2}
+                        />
                       </Form.Item>
                     </Col>
 
@@ -286,11 +307,14 @@ export default function Periods() {
                       <Form.Item
                         name="rot2EndWeek"
                         label="Rotasyon 2 Bitiş"
-                        rules={
-                          rc === 2 ? [{ required: true, message: "Zorunlu" }] : []
-                        }
+                        rules={rc === 2 ? [{ required: true, message: "Zorunlu" }] : []}
                       >
-                        <InputNumber min={1} max={30} style={{ width: "100%" }} disabled={rc !== 2} />
+                        <InputNumber
+                          min={1}
+                          max={30}
+                          style={{ width: "100%" }}
+                          disabled={rc !== 2}
+                        />
                       </Form.Item>
                     </Col>
                   </Row>
@@ -315,8 +339,7 @@ export default function Periods() {
 
           <Divider style={{ margin: "10px 0" }} />
 
-          {/* ✅ SINAV HAFTALARI */}
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Sınav Haftaları</div>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Sınav ve Aktif Hafta</div>
           <Row gutter={12}>
             <Col xs={24} md={6}>
               <Form.Item name="midtermWeek" label="Vize Haftası" rules={[{ required: true }]}>
@@ -333,11 +356,19 @@ export default function Periods() {
                 <InputNumber min={1} max={30} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
+            <Col xs={24} md={6}>
+              <Form.Item
+                label="Aktif Hafta"
+                name="currentWeekNo"
+                rules={[{ required: true, message: "Aktif hafta zorunlu" }]}
+              >
+                <InputNumber min={1} max={17} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
           </Row>
 
           <Divider style={{ margin: "10px 0" }} />
 
-          {/* ✅ KURA KURALLARI */}
           <Form.Item shouldUpdate noStyle>
             {({ getFieldValue, setFieldsValue }) => {
               const rc = Number(getFieldValue("rotationCount") ?? 1);
@@ -345,7 +376,11 @@ export default function Periods() {
 
               if (disabled) {
                 const lr = getFieldValue("lotteryRules") || {};
-                if (lr.rot2PreferDifferentDay || lr.rot2PreferDifferentHospital || lr.fallbackPreferHospitalDifferent) {
+                if (
+                  lr.rot2PreferDifferentDay ||
+                  lr.rot2PreferDifferentHospital ||
+                  lr.fallbackPreferHospitalDifferent
+                ) {
                   setFieldsValue({
                     lotteryRules: {
                       ...lr,
@@ -359,17 +394,34 @@ export default function Periods() {
 
               return (
                 <Form.Item label="Kura Kuralları (Seçilirse uygulanır)">
-                  <Form.Item name={["lotteryRules", "rot2PreferDifferentDay"]} valuePropName="checked" noStyle>
-                    <Checkbox disabled={disabled}>Rotasyon 2: Gün mümkünse farklı olsun</Checkbox>
-                  </Form.Item>
-                  <br />
-                  <Form.Item name={["lotteryRules", "rot2PreferDifferentHospital"]} valuePropName="checked" noStyle>
-                    <Checkbox disabled={disabled}>Rotasyon 2: Hastane mümkünse farklı olsun</Checkbox>
-                  </Form.Item>
-                  <br />
-                  <Form.Item name={["lotteryRules", "fallbackPreferHospitalDifferent"]} valuePropName="checked" noStyle>
+                  <Form.Item
+                    name={["lotteryRules", "rot2PreferDifferentDay"]}
+                    valuePropName="checked"
+                    noStyle
+                  >
                     <Checkbox disabled={disabled}>
-                      İkisi birlikte seçilirse öncelik: <b>önce ikisi de farklı</b>; çıkmazda <b>hastane farklı</b>, gün aynı kalabilir
+                      Rotasyon 2: Gün mümkünse farklı olsun
+                    </Checkbox>
+                  </Form.Item>
+                  <br />
+                  <Form.Item
+                    name={["lotteryRules", "rot2PreferDifferentHospital"]}
+                    valuePropName="checked"
+                    noStyle
+                  >
+                    <Checkbox disabled={disabled}>
+                      Rotasyon 2: Hastane mümkünse farklı olsun
+                    </Checkbox>
+                  </Form.Item>
+                  <br />
+                  <Form.Item
+                    name={["lotteryRules", "fallbackPreferHospitalDifferent"]}
+                    valuePropName="checked"
+                    noStyle
+                  >
+                    <Checkbox disabled={disabled}>
+                      İkisi birlikte seçilirse öncelik: <b>önce ikisi de farklı</b>; çıkmazda{" "}
+                      <b>hastane farklı</b>, gün aynı kalabilir
                     </Checkbox>
                   </Form.Item>
 
@@ -385,7 +437,6 @@ export default function Periods() {
 
           <Divider style={{ margin: "10px 0" }} />
 
-          {/* ✅ PUANLAMA */}
           <div style={{ fontWeight: 800, marginBottom: 8 }}>Puanlama Ayarları</div>
           <Row gutter={12}>
             <Col xs={24} md={4}>
@@ -399,12 +450,20 @@ export default function Periods() {
               </Form.Item>
             </Col>
             <Col xs={24} md={4}>
-              <Form.Item name="practicePenaltyCoef" label="Uyg. Ceza (hafta)" rules={[{ required: true }]}>
+              <Form.Item
+                name="practicePenaltyCoef"
+                label="Uyg. Ceza (hafta)"
+                rules={[{ required: true }]}
+              >
                 <InputNumber min={0} step={0.5} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
             <Col xs={24} md={4}>
-              <Form.Item name="theoryPenaltyCoef" label="Teori Ceza (hafta)" rules={[{ required: true }]}>
+              <Form.Item
+                name="theoryPenaltyCoef"
+                label="Teori Ceza (hafta)"
+                rules={[{ required: true }]}
+              >
                 <InputNumber min={0} step={0.5} style={{ width: "100%" }} />
               </Form.Item>
             </Col>

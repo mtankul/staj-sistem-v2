@@ -45,6 +45,7 @@ import teachersRouter from "./src/routes/teachers.js";
 // ✅ seed
 import { seedSystemSettings } from "./src/seed/settingsSeed.js";
 import { seedAdminUser } from "./src/seed/seedAdminUser.js";
+import teacherControlPanel from "./src/routes/teacher/controlPanel.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -156,6 +157,7 @@ setupSwagger(app);
 app.get("/api/teacher/me", requireTeacher, async (req, res) => {
   return res.json({ ok: true, user: req.user });
 });
+app.use("/api/teacher", teacherControlPanel);
 
 /* =========================
    STARTUP (SEED + LISTEN)

@@ -21,192 +21,12 @@ import { examInfo, rotationByWeek, isPracticeOpen, toInt } from "../../utils/per
 const router = Router();
 
 /* ===============================
-   SWAGGER (REPORTS/EVAL)
-================================ */
-
-/**
- * @openapi
- * /api/teacher/eval-form-snapshot:
- *   get:
- *     tags: [Teacher]
- *     summary: Get evaluation form snapshot for a period
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: periodId
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200: { description: Snapshot (or null) }
- *       400: { description: Validation error }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden }
- */
-
-/**
- * @openapi
- * /api/teacher/eval-form:
- *   get:
- *     tags: [Teacher]
- *     summary: Get evaluation form with saved item scores (by week) for a student
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: periodId
- *         required: true
- *         schema: { type: string }
- *       - in: query
- *         name: studentId
- *         required: true
- *         schema: { type: string }
- *       - in: query
- *         name: weekNo
- *         required: true
- *         schema: { type: integer, minimum: 1 }
- *       - in: query
- *         name: rotationNo
- *         required: true
- *         schema: { type: integer, enum: [1, 2] }
- *     responses:
- *       200: { description: Snapshot + rotationWeeks + scoresByWeek }
- *       400: { description: Validation / exam week }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden }
- *       404: { description: Not found }
- */
-
-/**
- * @openapi
- * /api/teacher/eval-item:
- *   put:
- *     tags: [Teacher]
- *     summary: Upsert a single evaluation item score (0..5) and recompute weekly total score
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [periodId, studentId, weekNo, rotationNo, itemId, score]
- *             properties:
- *               periodId: { type: string }
- *               studentId: { type: string }
- *               weekNo: { type: integer, minimum: 1 }
- *               rotationNo: { type: integer, enum: [1, 2] }
- *               itemId: { type: string }
- *               score: { type: integer, minimum: 0, maximum: 5 }
- *     responses:
- *       200: { description: Saved item + weeklyTotal }
- *       400: { description: Validation / business rule }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden (not present / no permission) }
- *       404: { description: Not found }
- */
-
-/**
- * @openapi
- * /api/teacher/reports:
- *   get:
- *     tags: [Teacher]
- *     summary: Weekly report answers list (observer/coordinator scope)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: periodId
- *         required: true
- *         schema: { type: string }
- *       - in: query
- *         name: weekNo
- *         required: true
- *         schema: { type: integer, minimum: 1 }
- *       - in: query
- *         name: scope
- *         required: false
- *         schema:
- *           type: string
- *           enum: [observer, coordinator]
- *     responses:
- *       200: { description: Report answers (and score if coordinator scope) }
- *       400: { description: Validation error }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden }
- *       404: { description: Not found }
- */
-
-/**
- * @openapi
- * /api/teacher/eval:
- *   get:
- *     tags: [Teacher]
- *     summary: Weekly evaluation list (observer/coordinator scope)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: periodId
- *         required: true
- *         schema: { type: string }
- *       - in: query
- *         name: weekNo
- *         required: true
- *         schema: { type: integer, minimum: 1 }
- *       - in: query
- *         name: scope
- *         required: false
- *         schema:
- *           type: string
- *           enum: [observer, coordinator]
- *     responses:
- *       200: { description: Evaluation list for assignments }
- *       400: { description: Validation error }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden }
- *       404: { description: Not found }
- */
-
-/**
- * @openapi
- * /api/teacher/eval/upsert:
- *   put:
- *     tags: [Teacher]
- *     summary: Upsert weekly evaluation total score (manual total)
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [periodId, studentId, weekNo, rotationNo, score]
- *             properties:
- *               periodId: { type: string }
- *               studentId: { type: string }
- *               weekNo: { type: integer, minimum: 1 }
- *               rotationNo: { type: integer, enum: [1, 2] }
- *               score: { type: number }
- *               note: { type: string, nullable: true }
- *     responses:
- *       200: { description: Upsert result }
- *       400: { description: Validation / business rule }
- *       401: { description: Unauthorized }
- *       403: { description: Forbidden (not present / no permission) }
- *       404: { description: Not found }
- */
-
-/* ===============================
    AUTH
 ================================ */
 function requireTeacher(req, res, next) {
   const u = req.user;
   if (!u) return res.status(401).json({ error: "Unauthorized" });
 
-  // hem userType hem type kabul
   const t = u.userType || u.type;
   if (t !== "teacher") return res.status(403).json({ error: "Forbidden" });
 
@@ -214,6 +34,9 @@ function requireTeacher(req, res, next) {
   next();
 }
 
+/* ===============================
+   HELPERS
+================================ */
 function getRotationWeeks(period, rotationNo) {
   const rot = Number(rotationNo);
   const s = rot === 1 ? Number(period?.rot1StartWeek) : Number(period?.rot2StartWeek);
@@ -240,6 +63,13 @@ function clamp05(v) {
   if (n > 5) return 5;
   return Math.round(n);
 }
+
+const VISIBLE_REPORT_STATUSES = [
+  "SUBMITTED",
+  "RESUBMITTED",
+  "REVISION_REQUESTED",
+  "APPROVED",
+];
 
 /**
  * ✅ GET /api/teacher/eval-form-snapshot?periodId=...
@@ -375,7 +205,10 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
     if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
     if (!rot) return res.status(400).json({ error: "rotationNo zorunlu" });
 
-    const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { hospitals: true } });
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      include: { hospitals: true },
+    });
     if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
 
     const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
@@ -385,8 +218,9 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
     if (ex) return res.status(400).json({ error: "Sınav haftasında değerlendirme yapılamaz" });
 
     const computedRot = rotationByWeek(period, w);
-    if (!computedRot || Number(computedRot) !== Number(rot))
+    if (!computedRot || Number(computedRot) !== Number(rot)) {
       return res.status(400).json({ error: "Bu hafta rotasyon/rotationNo uyuşmuyor" });
+    }
 
     const practiceEnabled = isPracticeOpen(period, rot, w);
     if (!practiceEnabled) return res.status(400).json({ error: "Uygulama kapalı" });
@@ -401,6 +235,7 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
         },
       },
     });
+
     const present = att ? !(att.practiceAbsent ?? false) : false;
     if (!present) return res.status(403).json({ error: "Uygulamaya gelmeyen öğrenci değerlendirilemez" });
 
@@ -418,7 +253,10 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
         },
         select: { id: true },
       });
-      if (!assg) return res.status(403).json({ error: "Bu öğrenci için yetkin yok (gün/hastane eşleşmiyor)" });
+
+      if (!assg) {
+        return res.status(403).json({ error: "Bu öğrenci için yetkin yok (gün/hastane eşleşmiyor)" });
+      }
     }
 
     const snap = await prisma.periodEvalSnapshot.findUnique({
@@ -457,7 +295,12 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
     // weeklyEvaluationScore'u item'lardan türet
     const activeItems = allItems.filter((x) => x.isActive);
     const weekItemScores = await prisma.weeklyEvaluationItemScore.findMany({
-      where: { periodId: String(periodId), studentId: String(studentId), rotationNo: Number(rot), weekNo: Number(w) },
+      where: {
+        periodId: String(periodId),
+        studentId: String(studentId),
+        rotationNo: Number(rot),
+        weekNo: Number(w),
+      },
       select: { itemId: true, score: true },
     });
 
@@ -498,262 +341,353 @@ router.put("/eval-item", requireTeacher, async (req, res) => {
 
 // GET /api/teacher/reports?periodId=&weekNo=&scope=observer|coordinator
 router.get("/reports", requireTeacher, async (req, res) => {
-  const teacherId = String(req.user.teacherId);
-  const { periodId, weekNo, scope = "observer" } = req.query;
+  try {
+    const teacherId = String(req.user.teacherId);
+    const { periodId, weekNo, scope = "observer" } = req.query;
 
-  if (!periodId) return res.status(400).json({ error: "periodId zorunlu" });
-  const w = toInt(weekNo, null);
-  if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
+    if (!periodId) return res.status(400).json({ error: "periodId zorunlu" });
+    const w = toInt(weekNo, null);
+    if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
 
-  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { hospitals: true } });
-  if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
-
-  const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
-  if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
-
-  const ex = examInfo(period, w);
-  if (ex) return res.json({ mode: "EXAM", exam: ex, items: [] });
-
-  const isCoordinatorScope = scope === "coordinator" && teacher.isCoordinator;
-
-  const rot = rotationByWeek(period, w);
-  if (!rot) return res.json({ mode: "NO_ROTATION", items: [] });
-
-  let studentIds = [];
-  if (isCoordinatorScope) {
-    const assg = await prisma.studentAssignment.findMany({
-      where: { periodId: String(periodId), rotationNo: Number(rot) },
-      select: { studentId: true },
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      include: { hospitals: true },
     });
-    studentIds = assg.map((x) => x.studentId);
-  } else {
-    const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
-    const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
+    if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
 
-    const assg = await prisma.studentAssignment.findMany({
+    const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
+    if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
+
+    const ex = examInfo(period, w);
+    if (ex) return res.json({ mode: "EXAM", exam: ex, items: [] });
+
+    const isCoordinatorScope = scope === "coordinator" && teacher.isCoordinator;
+
+    const rot = rotationByWeek(period, w);
+    if (!rot) return res.json({ mode: "NO_ROTATION", items: [] });
+
+    let scopedStudentIds = [];
+    if (isCoordinatorScope) {
+      const assg = await prisma.studentAssignment.findMany({
+        where: { periodId: String(periodId), rotationNo: Number(rot) },
+        select: { studentId: true },
+      });
+      scopedStudentIds = assg.map((x) => x.studentId);
+    } else {
+      const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
+      const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
+
+      const assg = await prisma.studentAssignment.findMany({
+        where: {
+          periodId: String(periodId),
+          rotationNo: Number(rot),
+          hospitalId: { in: hospitalIds },
+          dayOfWeek: { in: dayFilter },
+        },
+        select: { studentId: true },
+      });
+      scopedStudentIds = assg.map((x) => x.studentId);
+    }
+
+    if (!scopedStudentIds.length) {
+      return res.json({ mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER", items: [] });
+    }
+
+    const snap = await prisma.periodReportSnapshot.findUnique({
+      where: { periodId: String(periodId) },
+      include: { questions: { orderBy: { orderNo: "asc" } } },
+    });
+    if (!snap) return res.json({ mode: "NO_SNAPSHOT", items: [] });
+
+    const qs = (snap.questions || []).filter((q) => q.isActive);
+
+    // Öğretmen sadece gönderilmiş raporları görsün
+    const visibleHeaders = await prisma.weeklyReportScore.findMany({
       where: {
         periodId: String(periodId),
         rotationNo: Number(rot),
-        hospitalId: { in: hospitalIds },
-        dayOfWeek: { in: dayFilter },
+        weekNo: Number(w),
+        studentId: { in: scopedStudentIds },
+        status: { in: VISIBLE_REPORT_STATUSES },
       },
-      select: { studentId: true },
     });
-    studentIds = assg.map((x) => x.studentId);
+
+    const visibleStudentIds = visibleHeaders.map((x) => x.studentId);
+    if (!visibleStudentIds.length) {
+      return res.json({ mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER", items: [] });
+    }
+
+    const answers = await prisma.weeklyReportAnswer.findMany({
+      where: {
+        periodId: String(periodId),
+        rotationNo: Number(rot),
+        weekNo: Number(w),
+        studentId: { in: visibleStudentIds },
+      },
+    });
+
+    const byStudent = new Map();
+    for (const a of answers) {
+      if (!byStudent.has(a.studentId)) byStudent.set(a.studentId, new Map());
+      byStudent.get(a.studentId).set(a.questionId, a.answerText || "");
+    }
+
+    const students = await prisma.student.findMany({
+      where: { id: { in: visibleStudentIds } },
+      orderBy: { nameSurname: "asc" },
+    });
+
+    const headerMap = new Map(visibleHeaders.map((x) => [x.studentId, x]));
+
+    let questionScoreMap = new Map();
+    if (isCoordinatorScope) {
+      const questionScores = await prisma.weeklyReportQuestionScore.findMany({
+        where: {
+          periodId: String(periodId),
+          rotationNo: Number(rot),
+          weekNo: Number(w),
+          studentId: { in: visibleStudentIds },
+        },
+      });
+
+      questionScoreMap = new Map(
+        questionScores.map((x) => [`${x.studentId}::${x.questionId}`, x])
+      );
+    }
+
+    const out = students.map((s) => {
+      const amap = byStudent.get(s.id) || new Map();
+      const header = headerMap.get(s.id) || null;
+
+      return {
+        studentId: s.id,
+        studentNo: s.studentNo,
+        nameSurname: s.nameSurname,
+        photoUrl: s.photoUrl,
+        weekNo: w,
+        rotationNo: Number(rot),
+        status: header?.status ?? null,
+        totalScore: isCoordinatorScope ? header?.score ?? null : null,
+        note: isCoordinatorScope ? header?.note ?? null : null,
+        answers: qs.map((q) => {
+          const qScore = isCoordinatorScope
+            ? questionScoreMap.get(`${s.id}::${q.id}`) || null
+            : null;
+
+          return {
+            questionId: q.id,
+            text: q.text,
+            points: q.points,
+            answerText: amap.get(q.id) || "",
+            teacherScore: isCoordinatorScope ? qScore?.score ?? null : null,
+            teacherComment: isCoordinatorScope ? qScore?.comment ?? null : null,
+          };
+        }),
+      };
+    });
+
+    return res.json({
+      mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER",
+      items: out,
+    });
+  } catch (e) {
+    console.error("GET /teacher/reports error:", e);
+    return res.status(500).json({ error: "Rapor listesi alınamadı" });
   }
-
-  const snap = await prisma.periodReportSnapshot.findUnique({
-    where: { periodId: String(periodId) },
-    include: { questions: { orderBy: { orderNo: "asc" } } },
-  });
-  if (!snap) return res.json({ mode: "NO_SNAPSHOT", items: [] });
-
-  const qs = (snap.questions || []).filter((q) => q.isActive);
-
-  const answers = await prisma.weeklyReportAnswer.findMany({
-    where: { periodId: String(periodId), rotationNo: Number(rot), weekNo: Number(w), studentId: { in: studentIds } },
-  });
-
-  const byStudent = new Map();
-  for (const a of answers) {
-    if (!byStudent.has(a.studentId)) byStudent.set(a.studentId, new Map());
-    byStudent.get(a.studentId).set(a.questionId, a.answerText || "");
-  }
-
-  const students = await prisma.student.findMany({
-    where: { id: { in: studentIds } },
-    orderBy: { nameSurname: "asc" },
-  });
-
-  const scores = isCoordinatorScope
-    ? await prisma.weeklyReportScore.findMany({
-        where: { periodId: String(periodId), rotationNo: Number(rot), weekNo: Number(w), studentId: { in: studentIds } },
-      })
-    : [];
-  const scoreMap = new Map(scores.map((x) => [x.studentId, x]));
-
-  const out = students.map((s) => {
-    const amap = byStudent.get(s.id) || new Map();
-    return {
-      studentId: s.id,
-      studentNo: s.studentNo,
-      nameSurname: s.nameSurname,
-      photoUrl: s.photoUrl,
-      weekNo: w,
-      rotationNo: rot,
-      answers: qs.map((q) => ({
-        questionId: q.id,
-        text: q.text,
-        points: q.points,
-        answerText: amap.get(q.id) || "",
-      })),
-      score: isCoordinatorScope ? scoreMap.get(s.id)?.score ?? null : null,
-    };
-  });
-
-  res.json({ mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER", items: out });
 });
 
 // GET /api/teacher/eval?periodId=&weekNo=&scope=observer|coordinator
 router.get("/eval", requireTeacher, async (req, res) => {
-  const teacherId = String(req.user.teacherId);
-  const { periodId, weekNo, scope = "observer" } = req.query;
+  try {
+    const teacherId = String(req.user.teacherId);
+    const { periodId, weekNo, scope = "observer" } = req.query;
 
-  if (!periodId) return res.status(400).json({ error: "periodId zorunlu" });
-  const w = toInt(weekNo, null);
-  if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
+    if (!periodId) return res.status(400).json({ error: "periodId zorunlu" });
+    const w = toInt(weekNo, null);
+    if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
 
-  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { hospitals: true } });
-  if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      include: { hospitals: true },
+    });
+    if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
 
-  const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
-  if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
+    const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
+    if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
 
-  const ex = examInfo(period, w);
-  if (ex) return res.json({ mode: "EXAM", exam: ex, items: [] });
+    const ex = examInfo(period, w);
+    if (ex) return res.json({ mode: "EXAM", exam: ex, items: [] });
 
-  const isCoordinatorScope = scope === "coordinator" && teacher.isCoordinator;
+    const isCoordinatorScope = scope === "coordinator" && teacher.isCoordinator;
 
-  const rot = rotationByWeek(period, w);
-  if (!rot) return res.json({ mode: "NO_ROTATION", items: [] });
+    const rot = rotationByWeek(period, w);
+    if (!rot) return res.json({ mode: "NO_ROTATION", items: [] });
 
-  const practiceEnabled = isPracticeOpen(period, rot, w);
-  if (!practiceEnabled) return res.json({ mode: "PRACTICE_CLOSED", items: [] });
+    const practiceEnabled = isPracticeOpen(period, rot, w);
+    if (!practiceEnabled) return res.json({ mode: "PRACTICE_CLOSED", items: [] });
 
-  const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
-  const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
+    const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
+    const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
 
-  const where = {
-    periodId: String(periodId),
-    rotationNo: Number(rot),
-    ...(isCoordinatorScope ? {} : { hospitalId: { in: hospitalIds } }),
-    ...(isCoordinatorScope ? {} : { dayOfWeek: { in: dayFilter } }),
-  };
-
-  const assg = await prisma.studentAssignment.findMany({
-    where,
-    include: { student: true, hospital: true, unit: true },
-    orderBy: [{ dayOfWeek: "asc" }, { hospital: { name: "asc" } }, { student: { nameSurname: "asc" } }],
-  });
-
-  const studentIds = assg.map((x) => x.studentId);
-
-  const atts = await prisma.attendance.findMany({
-    where: { periodId: String(periodId), rotationNo: Number(rot), weekNo: Number(w), studentId: { in: studentIds } },
-  });
-  const attMap = new Map(atts.map((a) => [a.studentId, a]));
-  const presentIds = studentIds.filter((sid) => !(attMap.get(sid)?.practiceAbsent ?? true));
-
-  const evals = await prisma.weeklyEvaluationScore.findMany({
-    where: { periodId: String(periodId), rotationNo: Number(rot), weekNo: Number(w), studentId: { in: studentIds } },
-  });
-  const evalMap = new Map(evals.map((e) => [e.studentId, e]));
-
-  const out = assg.map((a) => {
-    const present = presentIds.includes(a.studentId);
-    return {
-      assignmentId: a.id,
-      studentId: a.studentId,
-      studentNo: a.student.studentNo,
-      nameSurname: a.student.nameSurname,
-      photoUrl: a.student.photoUrl,
-      dayOfWeek: a.dayOfWeek,
-      hospitalName: a.hospital?.name,
-      unitName: a.unit?.name,
-      weekNo: w,
-      rotationNo: rot,
-      present,
-      evalScore: evalMap.get(a.studentId)?.score ?? null,
-      evalNote: evalMap.get(a.studentId)?.note ?? null,
+    const where = {
+      periodId: String(periodId),
+      rotationNo: Number(rot),
+      ...(isCoordinatorScope ? {} : { hospitalId: { in: hospitalIds } }),
+      ...(isCoordinatorScope ? {} : { dayOfWeek: { in: dayFilter } }),
     };
-  });
 
-  res.json({ mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER", rotationNo: rot, items: out });
+    const assg = await prisma.studentAssignment.findMany({
+      where,
+      include: { student: true, hospital: true, unit: true },
+      orderBy: [{ dayOfWeek: "asc" }, { hospital: { name: "asc" } }, { student: { nameSurname: "asc" } }],
+    });
+
+    const studentIds = assg.map((x) => x.studentId);
+
+    const atts = await prisma.attendance.findMany({
+      where: {
+        periodId: String(periodId),
+        rotationNo: Number(rot),
+        weekNo: Number(w),
+        studentId: { in: studentIds },
+      },
+    });
+    const attMap = new Map(atts.map((a) => [a.studentId, a]));
+    const presentIds = studentIds.filter((sid) => !(attMap.get(sid)?.practiceAbsent ?? true));
+
+    const evals = await prisma.weeklyEvaluationScore.findMany({
+      where: {
+        periodId: String(periodId),
+        rotationNo: Number(rot),
+        weekNo: Number(w),
+        studentId: { in: studentIds },
+      },
+    });
+    const evalMap = new Map(evals.map((e) => [e.studentId, e]));
+
+    const out = assg.map((a) => {
+      const present = presentIds.includes(a.studentId);
+      return {
+        assignmentId: a.id,
+        studentId: a.studentId,
+        studentNo: a.student.studentNo,
+        nameSurname: a.student.nameSurname,
+        photoUrl: a.student.photoUrl,
+        dayOfWeek: a.dayOfWeek,
+        hospitalName: a.hospital?.name,
+        unitName: a.unit?.name,
+        weekNo: w,
+        rotationNo: Number(rot),
+        present,
+        evalScore: evalMap.get(a.studentId)?.score ?? null,
+        evalNote: evalMap.get(a.studentId)?.note ?? null,
+      };
+    });
+
+    return res.json({
+      mode: isCoordinatorScope ? "COORDINATOR" : "OBSERVER",
+      rotationNo: Number(rot),
+      items: out,
+    });
+  } catch (e) {
+    console.error("GET /teacher/eval error:", e);
+    return res.status(500).json({ error: "Değerlendirme listesi alınamadı" });
+  }
 });
 
 // PUT /api/teacher/eval/upsert  { periodId, studentId, weekNo, rotationNo, score, note }
 router.put("/eval/upsert", requireTeacher, async (req, res) => {
-  const teacherId = String(req.user.teacherId);
-  const { periodId, studentId, score, note } = req.body || {};
-  const w = toInt(req.body?.weekNo, null);
-  const rot = toInt(req.body?.rotationNo, null);
+  try {
+    const teacherId = String(req.user.teacherId);
+    const { periodId, studentId, score, note } = req.body || {};
+    const w = toInt(req.body?.weekNo, null);
+    const rot = toInt(req.body?.rotationNo, null);
 
-  if (!periodId || !studentId) return res.status(400).json({ error: "periodId + studentId zorunlu" });
-  if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
-  if (!rot) return res.status(400).json({ error: "rotationNo zorunlu" });
-  if (score === undefined) return res.status(400).json({ error: "score zorunlu" });
+    if (!periodId || !studentId) return res.status(400).json({ error: "periodId + studentId zorunlu" });
+    if (!w) return res.status(400).json({ error: "weekNo zorunlu" });
+    if (!rot) return res.status(400).json({ error: "rotationNo zorunlu" });
+    if (score === undefined) return res.status(400).json({ error: "score zorunlu" });
 
-  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { hospitals: true } });
-  if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
-
-  const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
-  if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
-
-  const ex = examInfo(period, w);
-  if (ex) return res.status(400).json({ error: "Sınav haftasında değerlendirme yapılamaz" });
-
-  const computedRot = rotationByWeek(period, w);
-  if (!computedRot || computedRot !== rot) return res.status(400).json({ error: "Bu hafta rotasyon/rotationNo uyuşmuyor" });
-
-  const practiceEnabled = isPracticeOpen(period, rot, w);
-  if (!practiceEnabled) return res.status(400).json({ error: "Uygulama kapalı" });
-
-  const att = await prisma.attendance.findUnique({
-    where: {
-      uniq_attendance_week: {
-        periodId: String(periodId),
-        studentId: String(studentId),
-        rotationNo: Number(rot),
-        weekNo: Number(w),
-      },
-    },
-  });
-  const present = att ? !(att.practiceAbsent ?? false) : false;
-  if (!present) return res.status(403).json({ error: "Uygulamaya gelmeyen öğrenci değerlendirilemez" });
-
-  if (!teacher.isCoordinator) {
-    const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
-    const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
-
-    const assg = await prisma.studentAssignment.findFirst({
-      where: {
-        periodId: String(periodId),
-        studentId: String(studentId),
-        rotationNo: Number(rot),
-        hospitalId: { in: hospitalIds },
-        dayOfWeek: { in: dayFilter },
-      },
-      select: { id: true },
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      include: { hospitals: true },
     });
-    if (!assg) return res.status(403).json({ error: "Bu öğrenci için yetkin yok (gün/hastane eşleşmiyor)" });
-  }
+    if (!teacher) return res.status(404).json({ error: "Gözlemci bulunamadı" });
 
-  const item = await prisma.weeklyEvaluationScore.upsert({
-    where: {
-      uniq_evalscore_week: {
+    const period = await prisma.period.findUnique({ where: { id: String(periodId) } });
+    if (!period) return res.status(404).json({ error: "Dönem bulunamadı" });
+
+    const ex = examInfo(period, w);
+    if (ex) return res.status(400).json({ error: "Sınav haftasında değerlendirme yapılamaz" });
+
+    const computedRot = rotationByWeek(period, w);
+    if (!computedRot || Number(computedRot) !== Number(rot)) {
+      return res.status(400).json({ error: "Bu hafta rotasyon/rotationNo uyuşmuyor" });
+    }
+
+    const practiceEnabled = isPracticeOpen(period, rot, w);
+    if (!practiceEnabled) return res.status(400).json({ error: "Uygulama kapalı" });
+
+    const att = await prisma.attendance.findUnique({
+      where: {
+        uniq_attendance_week: {
+          periodId: String(periodId),
+          studentId: String(studentId),
+          rotationNo: Number(rot),
+          weekNo: Number(w),
+        },
+      },
+    });
+    const present = att ? !(att.practiceAbsent ?? false) : false;
+    if (!present) return res.status(403).json({ error: "Uygulamaya gelmeyen öğrenci değerlendirilemez" });
+
+    if (!teacher.isCoordinator) {
+      const hospitalIds = (teacher.hospitals || []).map((x) => x.hospitalId);
+      const dayFilter = Array.isArray(teacher.practiceDays) ? teacher.practiceDays : [];
+
+      const assg = await prisma.studentAssignment.findFirst({
+        where: {
+          periodId: String(periodId),
+          studentId: String(studentId),
+          rotationNo: Number(rot),
+          hospitalId: { in: hospitalIds },
+          dayOfWeek: { in: dayFilter },
+        },
+        select: { id: true },
+      });
+      if (!assg) return res.status(403).json({ error: "Bu öğrenci için yetkin yok (gün/hastane eşleşmiyor)" });
+    }
+
+    const item = await prisma.weeklyEvaluationScore.upsert({
+      where: {
+        uniq_evalscore_week: {
+          periodId: String(periodId),
+          studentId: String(studentId),
+          rotationNo: Number(rot),
+          weekNo: Number(w),
+        },
+      },
+      create: {
         periodId: String(periodId),
         studentId: String(studentId),
         rotationNo: Number(rot),
         weekNo: Number(w),
+        score: Number(score),
+        note: note ? String(note) : null,
+        gradedBy: teacherId,
       },
-    },
-    create: {
-      periodId: String(periodId),
-      studentId: String(studentId),
-      rotationNo: Number(rot),
-      weekNo: Number(w),
-      score: Number(score),
-      note: note ? String(note) : null,
-      gradedBy: teacherId,
-    },
-    update: {
-      score: Number(score),
-      note: note !== undefined ? (note ? String(note) : null) : undefined,
-      gradedBy: teacherId,
-    },
-  });
+      update: {
+        score: Number(score),
+        note: note !== undefined ? (note ? String(note) : null) : undefined,
+        gradedBy: teacherId,
+      },
+    });
 
-  res.json({ ok: true, item });
+    return res.json({ ok: true, item });
+  } catch (e) {
+    console.error("PUT /teacher/eval/upsert error:", e);
+    return res.status(500).json({ error: "Değerlendirme kaydedilemedi" });
+  }
 });
 
 export default router;
